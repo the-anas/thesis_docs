@@ -1,0 +1,28 @@
+
+    def forward(self, x):
+
+        # X = C H W
+
+        # Get embedding
+        # y_g = K
+        y_g = self.emb_model(x)
+
+        # X_P = P C H W
+        x_p =  self.patchify(x)
+
+        # Extend y_g
+        # y_g = P K
+        # just add P dimension to it, so it matches the other tensor, not doing anything else
+
+        y = self.g_a(x_p, y_g)
+        z = self.h_a(torch.abs(y))
+        
+        scales_hat = self.h_s(z_hat)
+        z_hat, z_likelihoods = self.entropy_bottleneck(z)
+        y_hat, y_likelihoods = self.gaussian_conditional(y, scales_hat)
+        x_hat = self.g_s(y_hat, y
+        
+
+if you noticed here, a single model pass, process the entire image (all the pathces)
+
+this is prbly not going to be possible in the actual model, but it is ok for now

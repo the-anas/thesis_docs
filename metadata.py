@@ -84,8 +84,19 @@ reflectance is often stored as: reflectance × 10 000 → uint16 So a value like
 'blockxsize': 64, 'blockysize': 4, 
 'tiled': False, 'interleave': 'pixel'}
 """
+with rasterio.open("/home/anas/thesis/eurosat_image.tif") as src:
+    img = src.read()  # shape: (bands, height, width)
+    profile = src.profile
+
+profile
+img.shape
 img = torch.from_numpy(img).float()
 img.shape  # -> ([13,64,64])
+
+assert (img != 0).all() # => checking for 0 padding
+
+for ch in img:
+    print(ch)
 
 # ================
 # ROIs (this is the first version form sent1, containing c-band imagery with two bands)
@@ -149,3 +160,10 @@ for x in all_metadata:
     print("\n")
 # padding might not be enough for this
 # can't be used for experiments until we handle a 
+
+# #########################
+
+with rasterio.open("/home/anas/Downloads/ssl4eo-s12_100patches/rgb/0000001/20201104T135121_20201104T135117_T21KXT.png") as src:
+    img = src.read()  # shape: (bands, height, width)
+    profile = src.profile  # metadata (dtype, CRS, transform, etc.)
+print(img.shape)
