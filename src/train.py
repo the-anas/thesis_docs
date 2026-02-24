@@ -44,10 +44,11 @@ from compressai.losses import RateDistortionLoss
 from compressai.optimizers import net_aux_optimizer
 from compressai.zoo import image_models
 
-from compressai.models.google import ScaleHyperpriorCrossAttention
+from models import ScaleHyperpriorCrossAttention
 
 from rshf.satmae import SatMAE
 
+from new_utils import LowResMask
 
 class AverageMeter:
     """Compute running average."""
@@ -273,10 +274,12 @@ def main(argv):
         pin_memory=(device == "cuda"),
     )
     
-    # load  embedding model 
-    embedding_model_id = "MVRL/satmaepp_ViT-L_pretrain_fmow_rgb"
-    embedding_model = SatMAE.from_pretrained(embedding_model_id).to(device).eval()
+    # LOAD EMBEDDING MODEL 
+    # embedding_model_id = "MVRL/satmaepp_ViT-L_pretrain_fmow_rgb"
+    # embedding_model = SatMAE.from_pretrained(embedding_model_id).to(device).eval()
 
+    embedding_model = LowResMask()
+    
 
     #net = image_models[args.model](quality=3)
     net = ScaleHyperpriorCrossAttention(30, 24, 30, embedding_model=embedding_model)

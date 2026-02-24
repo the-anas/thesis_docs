@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from compressai.models.utils import conv, deconv
 from compressai.layers import GDN
-from compressai.additions.new_utils import patchify, embed_image, unpatchify
+from new_utils import patchify, embed_image, unpatchify
 
 
 # [X] write encoder
@@ -22,6 +22,8 @@ class Encoder_CrossAttention(nn.Module):
             GDN(N),
             conv(N, M),  # -> (B*P, M, h', w')
         )
+
+
 
         d = attn_dim if attn_dim is not None else M
         assert d % num_heads == 0, "attn_dim must be divisible by num_heads"
@@ -53,14 +55,16 @@ class Encoder_CrossAttention(nn.Module):
 
         # ---- Local features (B*P, M, h', w') ----
         y_local = self.local(x_flat)
-        BP, M, h, w = y_local.shape  # BP == B*P        
+        BP, M, h, w = y_local.shape  # BP == B*P    
+
+        _,K,_,_ = y_g.shape
 
         # ---- Turn feature map into query tokens: (B*P, L, M) where L=h*w ----
         # tokens correspond to spatial locations inside the patch latent
         q = y_local.flatten(2).transpose(1, 2)  # (BP, L, M)
 
         # ---- Global context as 1 token per patch: (B*P, 1, K) ----
-        kv = y_g.reshape(B * P, 1, self.K)
+        kv = y_g.reshape(B * P, 1, K)
 
         # ---- Project + layernorm ----
         q = self.ln_q(self.q_proj(q))         # (BP, L, d)
@@ -75,6 +79,7 @@ class Encoder_CrossAttention(nn.Module):
         
         # q_fused = q.new_zeros(BP, h * w, M)    # just to be explicit about dtype/device
         # skip connection for cross attention, standard practice to have
+    
         fused = attn_out + (y_local.flatten(2).transpose(1, 2))  # residual in M-space
 
         # [] shoud you add ffn layer after attention
@@ -142,6 +147,7 @@ class Decoder_CrossAttention(nn.Module):
         """
 
         BP, M, h, w = y_hat.shape
+        # print(f"\n\nCurrently in decoder\n{y_g.shape}")
 
         kv = y_g.reshape(BP, 1, self.K)  # (BP, 1, K)
 

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # ---------------------------
 # 1. Load image
 # ---------------------------
-img = Image.open("hrsc_image.bmp").convert("RGB")
+img = Image.open("/home/anas/thesis/images/ssl4eo.png").convert("RGB")
 
 # ############
 type(img)
@@ -18,30 +18,13 @@ img.size
 
 
 transform = T.Compose([
-    T.Resize((256, 256)),
+    #T.Resize((256, 256)),
     T.ToTensor(),  # (3, H, W), values in [0,1]
 ])
 
-x = transform(img).unsqueeze(0)  # (1, 3, 256, 256)
+x = transform(img).unsqueeze(0)  # (1, 3, 256, 256) , unsqueeze is for adding a bath dimension
 x.shape
 
-# ---------------------------
-# 2. CNN that produces a low-res mask
-# ---------------------------
-class LowResMaskCNN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Conv2d(3, 16, kernel_size=3, stride=2, padding=1),  # 256 → 128
-            nn.ReLU(),
-            nn.Conv2d(16, 1, kernel_size=3, stride=2, padding=1), # 128 → 64
-            nn.Sigmoid(),  # mank in [0,1]
-        )
-
-    def forward(self, x):
-        return self.net(x)
-
-model = LowResMaskCNN()
 
 # ---------------------------
 # 3. Forward pass
@@ -49,7 +32,7 @@ model = LowResMaskCNN()
 with torch.no_grad():
     # mask = model(x)  # (1, 1, 64, 64)
 
-    mask = F.avg_pool2d(x, kernel_size=8, stride=8)
+    mask = F.avg_pool2d(x, kernel_size=16, stride=16)
 # (1, 3, 256, 256) → (1, 3, 32, 32)
 
 
