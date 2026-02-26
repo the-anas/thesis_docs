@@ -1,0 +1,12 @@
+Learning rate: 0.0001
+Train epoch 0: [0/388 (0%)]	Loss: 101.057 |	MSE loss: 0.154 |	Bpp loss: 1.18 |	Aux loss: 1237.66
+Train epoch 0: [160/388 (40%)]	Loss: 126.098 |	MSE loss: 0.192 |	Bpp loss: 1.05 |	Aux loss: 1237.01
+Train epoch 0: [320/388 (80%)]	Loss: 119.476 |	MSE loss: 0.182 |	Bpp loss: 0.94 |	Aux loss: 1236.37
+Test epoch 0: Average losses:	Loss: 108.711 |	MSE loss: 0.166 |	Bpp loss: 0.63 |	Aux loss: 1236.11
+Traceback (most recent call last):
+  File "/home/anas/thesis/src/train.py", line 391, in <module>
+    main(sys.argv[1:])
+  File "/home/anas/thesis/src/train.py", line 381, in main
+    "loss": losses["eval/Loss_ma"],
+            ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'eval/Loss_ma'

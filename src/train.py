@@ -50,6 +50,12 @@ from rshf.satmae import SatMAE
 
 from new_utils import LowResMask
 
+import wandb
+
+from datetime import datetime
+
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
 class AverageMeter:
     """Compute running average."""
 
@@ -88,7 +94,7 @@ def configure_optimizers(net, args):
 
 
 def train_one_epoch(
-    model, criterion, train_dataloader, optimizer, aux_optimizer, epoch, clip_max_norm
+    model, criterion, train_dataloader, optimizer, aux_optimizer, epoch, clip_max_norm, wandb_obj
 ):
     model.train()
     device = next(model.parameters()).device
@@ -122,6 +128,13 @@ def train_one_epoch(
                 f"\tAux loss: {aux_loss.item():.2f}"
             )
 
+        wandb_obj.log( {
+            "train/Rate Distortion Loss": out_criterion["loss"].item(),
+            "train/MSE Loss Training" : out_criterion["mse_loss"].item(), 
+            "train/Bpp Loss Training" : out_criterion["bpp_loss"].item(),
+            "train/Aux Loss Training" : aux_loss.item()
+        })
+
 
 def test_epoch(epoch, test_dataloader, model, criterion):
     model.eval()
@@ -151,7 +164,12 @@ def test_epoch(epoch, test_dataloader, model, criterion):
         f"\tAux loss: {aux_loss.avg:.2f}\n"
     )
 
-    return loss.avg
+    return {
+        "Loss_ma" : loss.avg, # _ma stands for moving average, this comes from AverageMeter()
+        "MSE_loss_ma" : mse_loss.avg, 
+        "Bpp_loss_ma" : bpp_loss.avg,
+        "Aux_loss_ma" : aux_loss.avg, 
+    }
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
@@ -178,6 +196,13 @@ def parse_args(argv):
         default=100,
         type=int,
         help="Number of epochs (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-nm",
+        "--run_name",
+        default=timestamp,
+        type=str,
+        help="Name of the run in Weights and biases (default: %(default)s)",
     )
     parser.add_argument(
         "-lr",
@@ -245,6 +270,22 @@ def main(argv):
         torch.manual_seed(args.seed)
         random.seed(args.seed)
 
+    # init wandb
+    run = wandb.init(
+    # Set the wandb entity where your project will be logged (generally your team name).
+    entity="anasnamouchi",
+    # Set the wandb project where this run will be logged.
+    project="Thesis",
+    # Track hyperparameters and run metadata.
+    config={
+        # "learning_rate": 0.02,
+        "architecture": "Hyperprior + LowResMask",
+        "dataset": "ssl4eo-small",
+        "epochs": args.epochs,
+        "name": args.run_name
+    },
+)
+    
     train_transforms = transforms.Compose(
         [transforms.RandomCrop(args.patch_size), transforms.ToTensor()]
     )
@@ -282,7 +323,7 @@ def main(argv):
     
 
     #net = image_models[args.model](quality=3)
-    net = ScaleHyperpriorCrossAttention(30, 24, 30, embedding_model=embedding_model)
+    net = ScaleHyperpriorCrossAttention(30, 24, 30, embedding_model=embedding_model, embedding_type="avgpool")
     net = net.to(device)
 
     if args.cuda and torch.cuda.device_count() > 1:
@@ -305,6 +346,7 @@ def main(argv):
     best_loss = float("inf")
     for epoch in range(last_epoch, args.epochs):
         print(f"Learning rate: {optimizer.param_groups[0]['lr']}")
+        
         train_one_epoch(
             net,
             criterion,
@@ -313,19 +355,31 @@ def main(argv):
             aux_optimizer,
             epoch,
             args.clip_max_norm,
+            wandb_obj = run
         )
-        loss = test_epoch(epoch, test_dataloader, net, criterion)
-        lr_scheduler.step(loss)
+        losses = test_epoch(epoch, test_dataloader, net, criterion)
+        lr_scheduler.step(losses["Loss_ma"])
 
-        is_best = loss < best_loss
-        best_loss = min(loss, best_loss)
 
+        # [] above is the update to lr, make sure you tack it then
+        is_best = losses["Loss_ma"] < best_loss
+        best_loss = min(losses["Loss_ma"], best_loss)
+
+        run.log({
+            "lr_scheduler": lr_scheduler,
+            "eval/Loss_ma" : losses["Loss_ma"], 
+            "eval/MSE_loss_ma" : losses["MSE_loss_ma"], 
+            "eval/Bpp_loss_ma" : losses["Bpp_loss_ma"],
+            "eval/Aux_loss_ma" : losses["Aux_loss_ma"], 
+
+            }
+        )
         if args.save:
             save_checkpoint(
                 {
                     "epoch": epoch,
                     "state_dict": net.state_dict(),
-                    "loss": loss,
+                    "loss": losses["Loss_ma"],
                     "optimizer": optimizer.state_dict(),
                     "aux_optimizer": aux_optimizer.state_dict(),
                     "lr_scheduler": lr_scheduler.state_dict(),

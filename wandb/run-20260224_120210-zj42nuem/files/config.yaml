@@ -1,0 +1,64 @@
+_wandb:
+    value:
+        cli_version: 0.25.0
+        e:
+            ngaypdn0kpxq8y0v62uxlrdzy6ydon7w:
+                args:
+                    - -d
+                    - sfs
+                    - -nm
+                    - very first run
+                codePath: src/train.py
+                codePathLocal: src/train.py
+                cpu_count: 8
+                cpu_count_logical: 16
+                disk:
+                    /:
+                        total: "509943480320"
+                        used: "216132374528"
+                email: anasnamouchi@gmail.com
+                executable: /home/anas/thesis/.venv/bin/python3
+                git:
+                    commit: a2f50057b131a4675310d141e013e960f22d6d8b
+                    remote: https://github.com/the-anas/thesis_docs.git
+                host: omarchy
+                memory:
+                    total: "16125923328"
+                os: Linux-6.18.3-arch1-1-x86_64-with-glibc2.42
+                program: /home/anas/thesis/src/train.py
+                python: CPython 3.12.12
+                root: /home/anas/thesis
+                startedAt: "2026-02-24T11:02:10.235412Z"
+                writerId: ngaypdn0kpxq8y0v62uxlrdzy6ydon7w
+        m: []
+        python_version: 3.12.12
+        t:
+            "1":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 63
+                - 77
+            "2":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 63
+                - 77
+            "3":
+                - 16
+            "4": 3.12.12
+            "5": 0.25.0
+            "6": 5.1.0
+            "12": 0.25.0
+            "13": linux-x86_64
+architecture:
+    value: Hyperprior + LowResMask
+dataset:
+    value: ssl4eo-small
+epochs:
+    value: 100
+name:
+    value: very first run

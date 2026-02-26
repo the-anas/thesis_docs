@@ -3,6 +3,8 @@ from rshf.satmae import SatMAE
 import torchvision.io as io
 import torch.nn.functional as F
 import torch.nn as nn
+from compressai.models.utils import conv
+from compressai.layers import GDN
 
 # function to patch within model 
 def patchify(images: torch.Tensor, patch_size: int = 16):
@@ -115,3 +117,18 @@ class LowResMask(nn.Module):
     def forward(self, x):
         mask = self.pool(x)
         return mask
+    
+    # [] produce a downsampling
+
+class DownsampleCNN(nn.Module):
+    def __init__(self, N, K):
+    # good enough downsampling cnn
+        self.conv_global_y = nn.Sequential(
+            conv(3, N),
+            GDN(N),
+            conv(N, N),
+            GDN(N),
+            conv(N, N),
+            GDN(N),
+            conv(N, K),  # -> (B*P, K, h', w')
+        )
