@@ -286,6 +286,9 @@ def main(argv):
     },
 )
     
+    # Random crop below is not causing any problems, quite the opposite
+    # it is needed for the proper image sizes 
+    # the model will end up being trained on 256*256 images regardless of their size in the dataset
     train_transforms = transforms.Compose(
         [transforms.RandomCrop(args.patch_size), transforms.ToTensor()]
     )
@@ -294,8 +297,11 @@ def main(argv):
         [transforms.CenterCrop(args.patch_size), transforms.ToTensor()]
     )
 
-    train_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="train", transform=train_transforms)
-    test_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="test", transform=test_transforms)
+    # train_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="train", transform=train_transforms)
+    # test_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="test", transform=test_transforms)
+
+    train_dataset = ImageFolder(args.dataset, split="train", transform=train_transforms)
+    test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
 
@@ -323,7 +329,7 @@ def main(argv):
     
 
     #net = image_models[args.model](quality=3)
-    net = ScaleHyperpriorCrossAttention(30, 24, 30, embedding_model=embedding_model, embedding_type="avgpool")
+    net = ScaleHyperpriorCrossAttention(30, 24, 30, embedding_model=embedding_model, embedding_type="downsample_cnn")
     net = net.to(device)
 
     if args.cuda and torch.cuda.device_count() > 1:

@@ -144,6 +144,7 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
 
 
         y_g = self.embedding_model(x)
+        print("o_g y_g shape", y_g.shape)
         
         x_p = patchify(x)
         # print(f"x: {x.shape}\ty_g: {y_g.shape}\tx_p: {x_p.shape}")
@@ -158,11 +159,18 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         # [] is the flattening here necessary
 
         x_flat = x_p.reshape(B * P, C, Hp, Wp)
+        # VERY IMPORTANT NOTE:
+        # here the unsqueeze adds 1 dimension
+        # then expand repeats the following dimensions P times in that dimension
+        # meaning here, we have a single image repeated P times, for every single patch, 256 here
+        # right now we are providing the full image as a global vector, but when we use bahdanau attention
+        # this will not be correct, we cannot have a single patch (image) repeated P patches, but rather actual P patches
+        
         y_g_flat = (
             y_g
             .unsqueeze(1)          # (B, 1, K)
-            .expand(B, P, C, Hp, Wp)       # (B, P, K)
-            .reshape(B * P, C, Hp, Wp)     # (B*P, K)
+            .expand(B, P, self.K, Hp, Wp)       # (B, P, K)
+            .reshape(B * P, self.K, Hp, Wp)     # (B*P, K)
         )
 
         # y_g_transformed = self.conv_global_y(y_g_flat)

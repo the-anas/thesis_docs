@@ -29,8 +29,8 @@ class Encoder_CrossAttention(nn.Module):
         assert d % num_heads == 0, "attn_dim must be divisible by num_heads"
 
         self.q_proj = nn.Linear(M, d)
-        self.k_proj = nn.Linear(K, d)
-        self.v_proj = nn.Linear(K, d)
+        self.k_proj = nn.Linear(K, d) # attempted fix for avg_pool K*16*16
+        self.v_proj = nn.Linear(K, d) # attempted fix for avg_pool K*16*16
         self.out_proj = nn.Linear(d, M)
 
         self.attn = nn.MultiheadAttention(embed_dim=d, num_heads=num_heads, batch_first=True)
@@ -52,20 +52,25 @@ class Encoder_CrossAttention(nn.Module):
 
 
         x_flat = x_p.reshape(B * P, C, Hp, Wp)
+        print("x_flat shape", x_flat.shape)
 
         # ---- Local features (B*P, M, h', w') ----
         y_local = self.local(x_flat)
-        BP, M, h, w = y_local.shape  # BP == B*P    
+        BP, M, h, w = y_local.shape  # BP == B*P
+        print("shape of y_locoal", y_local.shape)    
 
+        print("x_g shape", x_p.shape)
         _,K,_,_ = y_g.shape
+        print("y_g shape", y_g.shape)
 
         # ---- Turn feature map into query tokens: (B*P, L, M) where L=h*w ----
         # tokens correspond to spatial locations inside the patch latent
         q = y_local.flatten(2).transpose(1, 2)  # (BP, L, M)
 
+        print("shape of q", q.shape)
         # ---- Global context as 1 token per patch: (B*P, 1, K) ----
-        kv = y_g.reshape(B * P, 1, K)
-
+        kv = y_g.reshape(B * P, 1, K) # attempted fix for avg_pool K*16*16
+        print("SHAPING BUG PASSED")
         # ---- Project + layernorm ----
         q = self.ln_q(self.q_proj(q))         # (BP, L, d)
         k = self.ln_kv(self.k_proj(kv))       # (BP, 1, d)

@@ -167,3 +167,13 @@ with rasterio.open("/home/anas/Downloads/ssl4eo-s12_100patches/rgb/0000001/20201
     img = src.read()  # shape: (bands, height, width)
     profile = src.profile  # metadata (dtype, CRS, transform, etc.)
 print(img.shape)
+
+# ##########
+
+with rasterio.open(
+    "/home/anas/datasets/ssl42eo-small-torun/train/0000004_20200928T102031_20200928T102456_T32UPB.png"    
+    ) as src:
+    img = src.read()  # shape: (bands, height, width)
+    profile = src.profile  # metadata (dtype, CRS, transform, etc.)
+print(img.shape)
+### image size 264*264

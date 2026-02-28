@@ -122,6 +122,7 @@ class LowResMask(nn.Module):
 
 class DownsampleCNN(nn.Module):
     def __init__(self, N, K):
+        super(DownsampleCNN, self).__init__()
     # good enough downsampling cnn
         self.conv_global_y = nn.Sequential(
             conv(3, N),
@@ -132,3 +133,7 @@ class DownsampleCNN(nn.Module):
             GDN(N),
             conv(N, K),  # -> (B*P, K, h', w')
         )
+    
+    def forward(self, x):
+        embedding = self.conv_global_y(x)
+        return embedding
