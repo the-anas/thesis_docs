@@ -372,7 +372,8 @@ def main(argv):
         best_loss = min(losses["Loss_ma"], best_loss)
 
         run.log({
-            "lr_scheduler": lr_scheduler,
+            # [] just commeneted for now, need to find a way for tracking the scheduler properly
+            #"lr_scheduler": lr_scheduler,
             "eval/Loss_ma" : losses["Loss_ma"], 
             "eval/MSE_loss_ma" : losses["MSE_loss_ma"], 
             "eval/Bpp_loss_ma" : losses["Bpp_loss_ma"],

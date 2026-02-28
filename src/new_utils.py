@@ -131,6 +131,14 @@ class DownsampleCNN(nn.Module):
             GDN(N),
             conv(N, N),
             GDN(N),
+            conv(N, N),
+            GDN(N),
+            conv(N, N),
+            GDN(N),
+            conv(N, N),
+            GDN(N),
+            conv(N, N),
+            GDN(N),
             conv(N, K),  # -> (B*P, K, h', w')
         )
     

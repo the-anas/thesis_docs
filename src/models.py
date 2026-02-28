@@ -144,7 +144,7 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
 
 
         y_g = self.embedding_model(x)
-        print("o_g y_g shape", y_g.shape)
+        # print("o_g y_g shape", y_g.shape)
         
         x_p = patchify(x)
         # print(f"x: {x.shape}\ty_g: {y_g.shape}\tx_p: {x_p.shape}")
@@ -169,8 +169,8 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         y_g_flat = (
             y_g
             .unsqueeze(1)          # (B, 1, K)
-            .expand(B, P, self.K, Hp, Wp)       # (B, P, K)
-            .reshape(B * P, self.K, Hp, Wp)     # (B*P, K)
+            .expand(B, P, self.K, 1, 1)       # (B, P, K)
+            .reshape(B * P, self.K, 1, 1)     # (B*P, K)
         )
 
         # y_g_transformed = self.conv_global_y(y_g_flat)
