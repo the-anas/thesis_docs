@@ -1,0 +1,1 @@
+- first vanilla small model: 30, 24, 30

@@ -48,8 +48,11 @@ from compressai.models.base import (
 from compressai.models.utils import conv, deconv
 
 
-from new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
-from new_transforms import Encoder_CrossAttention, Decoder_CrossAttention
+# [] ask toby about this issue, if running from train.py it is fine, but if running parameter_count.py then 
+# i need to add src. beforehand, i understand why but how can i just avoid this issue and have safe consistent imports
+# [] same thing  for the model after
+from src.new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
+from src.new_transforms import Encoder_CrossAttention, Decoder_CrossAttention
 
 import gzip
 import io
@@ -80,7 +83,8 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
     Experimental scale hyperprior with cross attention
     """
 
-    def __init__(self, N, M, K, embedding_model, embedding_type, patch_size:int=16,  **kwargs):
+    # [] the fact that the model takes in the embedding_model args is not clean, you can pass something else there and it won't be read, bad design, fix it
+    def __init__(self, N, M, K, embedding_model, embedding_type, patch_size:int=32,  **kwargs):
         super().__init__(**kwargs)
 
         # fixing K size depending on embedding type
@@ -153,7 +157,7 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         Gh = H // Hp
         Gw = W // Wp
         assert Gh * Gw == P, "patchify must tile the image regularly for this unpatchify"
-        
+        _ , _, h,w=y_g.shape
         # flattening patch dimension into vector dimension for x_p and y_g
 
         # [] is the flattening here necessary
@@ -169,8 +173,8 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         y_g_flat = (
             y_g
             .unsqueeze(1)          # (B, 1, K)
-            .expand(B, P, self.K, 1, 1)       # (B, P, K)
-            .reshape(B * P, self.K, 1, 1)     # (B*P, K)
+            .expand(B, P, self.K, h,w)       # (B, P, K)
+            .reshape(B * P, self.K, h,w)     # (B*P, K)
         )
 
         # y_g_transformed = self.conv_global_y(y_g_flat)
@@ -206,6 +210,11 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         # now you need to pass per image y_g_strings, y_strings, and x_strings 
 
     def compress(self, x):
+        """
+        The whole batch dimension thing is off and should be handeled differently
+        shaping needs to be done better
+        """
+        # [] if all is well, the dimension of y_g of this function need fixing to be like the main model forward()
 
         x_p = patchify(x)
         B, C, H, W = x.shape
@@ -214,13 +223,14 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         Gw = W // Wp
 
         y_g = self.embedding_model(x)
+        print("y_g shape", y_g.shape)
 
         # []  is the flattening also necesary  here  
         y_g_flat = (
             y_g
             .unsqueeze(1)          # (B, 1, K)
-            .expand(B, P, C, Hp, Wp)       # (B, P, K)
-            .reshape(B * P, C, Hp, Wp)     # (B*P, K)
+            .expand(B, P, self.K, 1, 1)       # (B, P, K)
+            .reshape(B * P, self.K, 1, 1)     # (B*P, K)
         )
 
         # y_g_transformed = self.conv_global_y(y_g_flat)
@@ -235,8 +245,18 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
 
         y_g_strings = self.y_ent_bot.compress(y_g_flat)
 
+        # indexes just has the same shape as scales_hat
         scales_hat = self.h_s(z_hat)
+        print("scales_hat shape", scales_hat.shape)
         indexes = self.gaussian_conditional.build_indexes(scales_hat)
+
+        #####
+        print("y:", y.shape)
+        print("z:", z.shape)
+        print("z_hat:", z_hat.shape)
+        print("scales_hat:", scales_hat.shape)
+        print("indexes:", indexes.shape)
+        # error below
         y_strings = self.gaussian_conditional.compress(y, indexes)
 
         return {"strings": [y_strings, z_strings, y_g_strings], "shape": [z.size()[-2:], y_g_flat.size()[-2:], [B,P,Gh,Gw]]}

@@ -279,7 +279,7 @@ def main(argv):
     # Track hyperparameters and run metadata.
     config={
         # "learning_rate": 0.02,
-        "architecture": "Hyperprior + LowResMask",
+        "architecture": "Hyperprior + Downsample_CNN",
         "dataset": "ssl4eo-small",
         "epochs": args.epochs,
         "name": args.run_name

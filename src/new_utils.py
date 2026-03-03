@@ -125,21 +125,21 @@ class DownsampleCNN(nn.Module):
         super(DownsampleCNN, self).__init__()
     # good enough downsampling cnn
         self.conv_global_y = nn.Sequential(
-            conv(3, N),
+            conv(3, N), # 128
             GDN(N),
-            conv(N, N),
+            conv(N, N), #64
             GDN(N),
-            conv(N, N),
+            conv(N, N), #32
             GDN(N),
-            conv(N, N),
+            conv(N, N), #16
             GDN(N),
-            conv(N, N),
+            conv(N, N), #8
             GDN(N),
-            conv(N, N),
-            GDN(N),
-            conv(N, N),
-            GDN(N),
-            conv(N, K),  # -> (B*P, K, h', w')
+            conv(N, K), #4
+            # GDN(N),
+            # conv(N, N), #
+            # GDN(N),
+            # conv(N, K),  # -> (B*P, K, h', w')
         )
     
     def forward(self, x):
