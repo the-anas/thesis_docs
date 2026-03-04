@@ -223,14 +223,15 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         Gw = W // Wp
 
         y_g = self.embedding_model(x)
+        _ , _, h,w= y_g.shape
         print("y_g shape", y_g.shape)
 
         # []  is the flattening also necesary  here  
         y_g_flat = (
             y_g
             .unsqueeze(1)          # (B, 1, K)
-            .expand(B, P, self.K, 1, 1)       # (B, P, K)
-            .reshape(B * P, self.K, 1, 1)     # (B*P, K)
+            .expand(B, P, self.K, h,w)       # (B, P, K)
+            .reshape(B * P, self.K, h,w)     # (B*P, K)
         )
 
         # y_g_transformed = self.conv_global_y(y_g_flat)

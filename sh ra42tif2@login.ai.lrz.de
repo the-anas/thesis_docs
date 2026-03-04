@@ -1,0 +1,71 @@
+[33mcommit 6d5d01ef2cf121bbcf0ce235c9e9bd7ba7fa2aaa[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Tue Mar 3 11:53:20 2026 +0100
+
+    attempt to fix compress() decompress() functions, training to test will run on cluster
+
+[33mcommit d57b38d3658f7f0605590678ba500a36ae048b36[m
+Author: Anas Namouchi <ra42tif2@login-02.ai.lrz.de>
+Date:   Mon Mar 2 14:39:39 2026 +0100
+
+    few files added after the set up of first experiment
+
+[33mcommit c739556990818bc4f425c4122b522a915afcbfaa[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Sat Feb 28 19:59:11 2026 +0100
+
+    temporarely fixed shape bug
+
+[33mcommit 8cb783dda32f444cc917f546ab1c73f3f4e518a4[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Sat Feb 28 16:38:49 2026 +0100
+
+    commit only done to be able to revert properly, ignore this one. trying to fix major shaping bug
+
+[33mcommit 55a12769cceb9baf58e7ef064aa4a54e0fa5f4f8[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Thu Feb 26 14:22:26 2026 +0100
+
+    removed wandb files and added them .gitignore
+
+[33mcommit b71247d684f6d4ce6ea7b357126f4313a4bb6e23[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Thu Feb 26 14:19:10 2026 +0100
+
+    added new logic for embedding model: downsampling cnn or average pooling. Also updated compress and decompress functions in main model but did not test them.
+
+[33mcommit a2f50057b131a4675310d141e013e960f22d6d8b[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Tue Feb 24 10:16:23 2026 +0100
+
+    Debugging: replaced embedding model with just a low res mask to try a simpler version and get around opitmizer error. Added a convolutional layer to proess global vector (low res mask at the time of this push) to have more and better control over dimensions. This is more convinient but adds to the number of parameters that need to be optimized. Theoritically, a low res mask should not be processed further, it is our embedding layer. [] This is a quick fix and will need to look more into this. A bit more clean up and set up as well.
+
+[33mcommit 02534f01cdb4ad631a5371f09c17ba297e151918[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Mon Feb 23 15:39:35 2026 +0100
+
+    Deleted old memory approach, where we use kinda of a look up table, kind of a dataset prior about the data. Also a bit more cleaning
+
+[33mcommit 344e7654fc29d9f09e65676b107c0f95b8ea6618[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Mon Feb 23 15:36:11 2026 +0100
+
+    Organized files within directories for clarity
+
+[33mcommit d870ea4f26afa1fca26a413b5b54f5fc8a2697ce[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Tue Feb 10 09:51:40 2026 +0100
+
+    added model some model files here, these still have wrong imports and need fixing before they can be used
+
+[33mcommit 67cf4aada000e4811cc24c26c6aeef88c189b866[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Thu Jan 22 16:45:17 2026 +0100
+
+    added bmshj model script with memory. Script still extremely basic and doesn't work. added here for backup.
+
+[33mcommit 1a3e85db5d1cba8fa9ce018ddd1e924f76561ff7[m
+Author: the-anas <anasnamouchi@gmail.com>
+Date:   Thu Jan 22 16:37:40 2026 +0100
+
+    first commit

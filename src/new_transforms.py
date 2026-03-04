@@ -19,9 +19,9 @@ class Encoder_CrossAttention(nn.Module):
             GDN(N),
             conv(N, N), #4, 8
             GDN(N),
-            conv(N, N), #2, 4
+            # conv(N, N), #2, 4
             # GDN(N),
-            # conv(N, M),  # -> (B*P, M, h', w')
+            conv(N, M),  # -> (B*P, M, h', w')
         )
         # [] make convolution a bit less deep
 

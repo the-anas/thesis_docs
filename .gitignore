@@ -1,4 +1,5 @@
 *.tar
 /wandb
 *.out
-/images
+/images/
+*__pycache__*
