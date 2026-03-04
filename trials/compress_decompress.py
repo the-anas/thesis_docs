@@ -22,6 +22,13 @@ files = [f for f in folder.iterdir() if f.is_file()]
 embedding_model = LowResMask()
 checkpoint = torch.load("checkpoint_best_loss.pth.tar", map_location="cpu")
 my_model = ScaleHyperpriorCrossAttention(30, 24, 30, embedding_model=embedding_model, embedding_type="downsample_cnn")
+sd = checkpoint["state_dict"]
+print("Model keys sample:", list(my_model.state_dict().keys())[:30])
+print("Checkpoint keys sample:", list(sd.keys())[:30])
+
+# And most importantly:
+print("Current g_a.local:", my_model.g_a.local)
+
 my_model.load_state_dict(checkpoint["state_dict"])
 
 my_model.eval()
