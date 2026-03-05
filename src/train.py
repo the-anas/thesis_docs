@@ -289,12 +289,13 @@ def main(argv):
     # Random crop below is not causing any problems, quite the opposite
     # it is needed for the proper image sizes 
     # the model will end up being trained on 256*256 images regardless of their size in the dataset
+    # [] 256 is hardcoded and needs to change
     train_transforms = transforms.Compose(
-        [transforms.RandomCrop(args.patch_size), transforms.ToTensor()]
+        [transforms.RandomCrop(256), transforms.ToTensor()]
     )
 
     test_transforms = transforms.Compose(
-        [transforms.CenterCrop(args.patch_size), transforms.ToTensor()]
+        [transforms.CenterCrop(256), transforms.ToTensor()]
     )
 
     # train_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="train", transform=train_transforms)

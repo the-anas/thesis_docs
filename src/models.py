@@ -51,8 +51,8 @@ from compressai.models.utils import conv, deconv
 # [] ask toby about this issue, if running from train.py it is fine, but if running parameter_count.py then 
 # i need to add src. beforehand, i understand why but how can i just avoid this issue and have safe consistent imports
 # [] same thing  for the model after
-from new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
-from new_transforms import Encoder_CrossAttention, Decoder_CrossAttention
+from src.new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
+from src.new_transforms import Encoder_CrossAttention, Decoder_CrossAttention
 
 import gzip
 import io
