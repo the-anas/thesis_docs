@@ -84,7 +84,7 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
     """
 
     # [] the fact that the model takes in the embedding_model args is not clean, you can pass something else there and it won't be read, bad design, fix it
-    def __init__(self, N, M, K, embedding_model, embedding_type, patch_size:int=32,  **kwargs):
+    def __init__(self, N, M, K, embedding_model, embedding_type, patch_size:int=16,  **kwargs):
         super().__init__(**kwargs)
 
         # fixing K size depending on embedding type
@@ -150,7 +150,8 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         y_g = self.embedding_model(x)
         # print("o_g y_g shape", y_g.shape)
         
-        x_p = patchify(x)
+        x_p = patchify(x, patch_size=self.patch_size)
+
         # print(f"x: {x.shape}\ty_g: {y_g.shape}\tx_p: {x_p.shape}")
         B, C, H, W = x.shape
         B, P, C, Hp, Wp = x_p.shape
@@ -186,6 +187,12 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         z = self.h_a(torch.abs(y))
         z_hat, z_likelihoods = self.entropy_bottleneck(z)
         scales_hat = self.h_s(z_hat)
+
+        # print("shape z", z.shape)
+        # print("shape z_hat", z_hat.shape)
+        # print("shape y", y.shape)
+        # print("scales shape", scales_hat.shape)
+
         y_hat, y_likelihoods = self.gaussian_conditional(y, scales_hat)
         
         y_g_hat, y_g_likelihoods = self.y_ent_bot(y_g_flat)
@@ -197,7 +204,7 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         x_hat_p = x_hat_p_flat.reshape(B, P, 3, x_hat_p_flat.shape[-2], x_hat_p_flat.shape[-1])
 
         # ---- 10) Unpatchify to full image ----
-        x_hat = unpatchify(x_hat_p, (Gh, Gw))
+        x_hat = unpatchify(x_hat_p, (Gh, Gw), )
 
         return {
             "x_hat": x_hat,

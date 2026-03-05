@@ -2,4 +2,4 @@
 /wandb
 *.out
 /images/
-*__pycache__*
+/__pycache__/
