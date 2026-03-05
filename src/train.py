@@ -60,8 +60,11 @@ import random
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
-cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
+cropped_path = Path("/home/anas/thesis/results/cropped/")
+reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
+
+# reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
+# cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
 
 os.makedirs(reconstruction_path, exist_ok=True)
 os.makedirs(cropped_path, exist_ok=True)
@@ -85,11 +88,12 @@ def images_every_10_epochs(test_dataset, model,epoch ):
         print(f"Currently in image number {ind}")
         counter=0
         print("shape tens", tens.shape)
-        for image in tens:
+        for sec_ind, image in enumerate(tens):
+            print("image type and shape", image.shape, type(image))
             print(f"counter is {counter}")
             image = image.to(device)
             
-            save_tensor_as_image(image, Path(cropped_path / f"epoch_{epoch}"/f"image{ind}_epoch{epoch}.png"))
+            save_tensor_as_image(image, Path(cropped_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
             print("cropped saved")
             tensor = image.unsqueeze(0)
             # print("relevant")
@@ -100,8 +104,9 @@ def images_every_10_epochs(test_dataset, model,epoch ):
             # print(type(x_hat))
             # print(type(x_hat["x_hat"]))
             # print(x_hat["x_hat"].shape)
-            save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"epoch_{epoch}"/f"image{ind}_epoch{epoch}.png"))
+            save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
             print("reconstructed saved")
+            counter+=1
     
     model.train()
 
@@ -405,6 +410,13 @@ def main(argv):
 
     best_loss = float("inf")
     for epoch in range(last_epoch, args.epochs):
+
+        ####
+        # if epoch %10 == 0:
+        #     images_every_10_epochs(test_dataset,net,epoch)
+
+
+        ###
         print(f"Learning rate: {optimizer.param_groups[0]['lr']}")
         train_one_epoch(
             net,
@@ -419,8 +431,10 @@ def main(argv):
         losses = test_epoch(epoch, test_dataloader, net, criterion)
         lr_scheduler.step(losses["Loss_ma"])
         
+        # [] put the saving images below
         if epoch %10 == 0:
             images_every_10_epochs(test_dataset,net,epoch)
+        
 
             
 
