@@ -48,13 +48,46 @@ from models import ScaleHyperpriorCrossAttention
 
 from rshf.satmae import SatMAE
 
-from new_utils import LowResMask
+from new_utils import LowResMask, save_tensor_as_image
 
 import wandb
 
 from datetime import datetime
+from pathlib import Path
+from torch.utils.data import Subset, DataLoader
+import os
+import random
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
+cropped_path = Path("/home/anas/thesis/results/cropped/")
+
+os.makedirs(reconstruction_path, exist_ok=True)
+os.makedirs(cropped_path, exist_ok=True)
+
+
+# save example images from test suite every 10 epochs
+def images_every_10_epochs(test_dataset, model,epoch ):    
+    random_indices = random.sample(range(len(test_dataset)), 10)
+
+    # Create a subset and a new dataloader
+    subset = Subset(test_dataset, random_indices)
+    random_loader = DataLoader(subset, batch_size=10, shuffle=False)
+
+    for ind, tens in enumerate(random_loader):
+        for image in tens:
+            
+            save_tensor_as_image(image, Path(cropped_path / f"image{ind}_epoch{epoch}"))
+            tensor = image.unsqueeze(0)
+        
+            out = model.compress(tensor)
+            x_hat = model.decompress(out["strings"], out["shape"])
+            # print(type(x_hat))
+            # print(type(x_hat["x_hat"]))
+            # print(x_hat["x_hat"].shape)
+            save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"image{ind}_epoch{epoch}"))
+                
 
 class AverageMeter:
     """Compute running average."""
@@ -103,8 +136,8 @@ def train_one_epoch(
 
 
         d = d.to(device)
-        print("type of d", type(d))
-        pritn("shape of d", d.shape)
+        # print("type of d", type(d))
+        # pritn("shape of d", d.shape)
         # print
         optimizer.zero_grad()
         aux_optimizer.zero_grad()
@@ -357,7 +390,6 @@ def main(argv):
     best_loss = float("inf")
     for epoch in range(last_epoch, args.epochs):
         print(f"Learning rate: {optimizer.param_groups[0]['lr']}")
-        
         train_one_epoch(
             net,
             criterion,
@@ -370,10 +402,11 @@ def main(argv):
         )
         losses = test_epoch(epoch, test_dataloader, net, criterion)
         lr_scheduler.step(losses["Loss_ma"])
+        
+        if epoch %10 == 0:
+            images_every_10_epochs(test_dataset,net,epoch)
 
-        # save example images from test suite every 10 epochs
-        if epoch %10==0:
-            pass
+            
 
         # [] above is the update to lr, make sure you tack it then
         is_best = losses["Loss_ma"] < best_loss

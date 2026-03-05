@@ -5,6 +5,8 @@ import torch.nn.functional as F
 import torch.nn as nn
 from compressai.models.utils import conv
 from compressai.layers import GDN
+from PIL import Image
+
 
 # function to patch within model 
 def patchify(images: torch.Tensor, patch_size: int = 16):
@@ -145,3 +147,17 @@ class DownsampleCNN(nn.Module):
     def forward(self, x):
         embedding = self.conv_global_y(x)
         return embedding
+    
+def save_tensor_as_image(tensor, path):
+
+    tensor = tensor.clamp(0, 1)
+    # 2. Rescale back to [0, 255]
+    tensor = (tensor * 255).byte()   # or .to(torch.uint8)
+    # 3. Convert to (H, W, C) for PIL
+    img_array = tensor.permute(1, 2, 0).numpy()
+    # 4. Save
+    print(img_array)
+    print(tensor.shape)
+    img = Image.fromarray(img_array)
+    print(path)
+    img.save(path)
