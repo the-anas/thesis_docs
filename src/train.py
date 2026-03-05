@@ -100,8 +100,11 @@ def train_one_epoch(
     device = next(model.parameters()).device
 
     for i, d in enumerate(train_dataloader):
-        d = d.to(device)
 
+
+        d = d.to(device)
+        print("type of d", type(d))
+        # print
         optimizer.zero_grad()
         aux_optimizer.zero_grad()
 
@@ -367,6 +370,9 @@ def main(argv):
         losses = test_epoch(epoch, test_dataloader, net, criterion)
         lr_scheduler.step(losses["Loss_ma"])
 
+        # save example images from test suite every 10 epochs
+        if epoch %10==0:
+            pass
 
         # [] above is the update to lr, make sure you tack it then
         is_best = losses["Loss_ma"] < best_loss

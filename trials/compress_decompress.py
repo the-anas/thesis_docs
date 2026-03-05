@@ -59,14 +59,17 @@ my_model.update(force=True)   # important
 for file in files:
     image = image = Image.open(file).convert("RGB")
     tensor = test_transforms(image)
-    # tensor = tensor.unsqueeze(0)
+    # add 1 at batch dimension
     save_tensor_as_image(tensor, cropped_path + file.name)
+    tensor = tensor.unsqueeze(0)
     # print(tensor*255)
     # save_image((tensor*255), f"{output_dir}/cropped/{file.name}")
-    break
+    
     out = my_model.compress(tensor)
     x_hat = my_model.decompress(out["strings"], out["shape"])
-    print(type(x_hat))
-    print(x_hat)
-    print("\n")
-    break 
+    # print(type(x_hat))
+    # print(type(x_hat["x_hat"]))
+    # print(x_hat["x_hat"].shape)
+    save_tensor_as_image(x_hat["x_hat"].squeeze(0), reconstructed_path+file.name)
+    # print("\n")
+     
