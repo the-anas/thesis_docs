@@ -60,34 +60,50 @@ import random
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
-cropped_path = Path("/home/anas/thesis/results/cropped/")
+reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
+cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
 
 os.makedirs(reconstruction_path, exist_ok=True)
 os.makedirs(cropped_path, exist_ok=True)
 
 
 # save example images from test suite every 10 epochs
-def images_every_10_epochs(test_dataset, model,epoch ):    
+def images_every_10_epochs(test_dataset, model,epoch ): 
+    device = next(model.parameters()).device   
+    model.eval()
+    model.update(force=True)
+
     random_indices = random.sample(range(len(test_dataset)), 10)
+    os.makedirs(Path(reconstruction_path/f"epoch_{epoch}"), exist_ok=True) 
+    os.makedirs(Path(cropped_path/f"epoch_{epoch}"), exist_ok=True) 
 
     # Create a subset and a new dataloader
     subset = Subset(test_dataset, random_indices)
     random_loader = DataLoader(subset, batch_size=10, shuffle=False)
-
+    print("init saving images")
     for ind, tens in enumerate(random_loader):
+        print(f"Currently in image number {ind}")
+        counter=0
+        print("shape tens", tens.shape)
         for image in tens:
+            print(f"counter is {counter}")
+            image = image.to(device)
             
-            save_tensor_as_image(image, Path(cropped_path / f"image{ind}_epoch{epoch}"))
+            save_tensor_as_image(image, Path(cropped_path / f"epoch_{epoch}"/f"image{ind}_epoch{epoch}.png"))
+            print("cropped saved")
             tensor = image.unsqueeze(0)
-        
+            # print("relevant")
+            print(type(tensor))
+            print(tensor.shape)
             out = model.compress(tensor)
             x_hat = model.decompress(out["strings"], out["shape"])
             # print(type(x_hat))
             # print(type(x_hat["x_hat"]))
             # print(x_hat["x_hat"].shape)
-            save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"image{ind}_epoch{epoch}"))
-                
+            save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"epoch_{epoch}"/f"image{ind}_epoch{epoch}.png"))
+            print("reconstructed saved")
+    
+    model.train()
 
 class AverageMeter:
     """Compute running average."""

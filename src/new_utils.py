@@ -154,10 +154,11 @@ def save_tensor_as_image(tensor, path):
     # 2. Rescale back to [0, 255]
     tensor = (tensor * 255).byte()   # or .to(torch.uint8)
     # 3. Convert to (H, W, C) for PIL
-    img_array = tensor.permute(1, 2, 0).numpy()
+    img_array = tensor.permute(1, 2, 0).cpu().numpy()
     # 4. Save
-    print(img_array)
-    print(tensor.shape)
+    # print(img_array)
+    # print(tensor.shape)
     img = Image.fromarray(img_array)
+    print("PATH is")
     print(path)
     img.save(path)
