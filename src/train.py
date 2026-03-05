@@ -104,6 +104,7 @@ def train_one_epoch(
 
         d = d.to(device)
         print("type of d", type(d))
+        pritn("shape of d", d.shape)
         # print
         optimizer.zero_grad()
         aux_optimizer.zero_grad()

@@ -51,8 +51,8 @@ from compressai.models.utils import conv, deconv
 # [] ask toby about this issue, if running from train.py it is fine, but if running parameter_count.py then 
 # i need to add src. beforehand, i understand why but how can i just avoid this issue and have safe consistent imports
 # [] same thing  for the model after
-from src.new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
-from src.new_transforms import Encoder_CrossAttention, Decoder_CrossAttention
+from new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
+from new_transforms import Encoder_CrossAttention, Decoder_CrossAttention
 
 import gzip
 import io
@@ -231,7 +231,7 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
 
         y_g = self.embedding_model(x)
         _ , _, h,w= y_g.shape
-        print("y_g shape", y_g.shape)
+        # print("y_g shape", y_g.shape)
 
         # []  is the flattening also necesary  here  
         y_g_flat = (
@@ -255,15 +255,15 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
 
         # indexes just has the same shape as scales_hat
         scales_hat = self.h_s(z_hat)
-        print("scales_hat shape", scales_hat.shape)
+        # print("scales_hat shape", scales_hat.shape)
         indexes = self.gaussian_conditional.build_indexes(scales_hat)
 
         #####
-        print("y:", y.shape)
-        print("z:", z.shape)
-        print("z_hat:", z_hat.shape)
-        print("scales_hat:", scales_hat.shape)
-        print("indexes:", indexes.shape)
+        # print("y:", y.shape)
+        # print("z:", z.shape)
+        # print("z_hat:", z_hat.shape)
+        # print("scales_hat:", scales_hat.shape)
+        # print("indexes:", indexes.shape)
         # error below
         y_strings = self.gaussian_conditional.compress(y, indexes)
 
