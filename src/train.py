@@ -58,13 +58,34 @@ from torch.utils.data import Subset, DataLoader
 import os
 import random
 
+
+from torchmetrics.functional import peak_signal_noise_ratio as psnr_metric
+from torchmetrics.functional import structural_similarity_index_measure as ssim_metric
+# [] not that lpips can only be used with rgb images
+# [] also omitting lpips for now, answer the following questions beforehand
+    # - are we supposed to run lpips on this specific model or on other alternate pre-trained models?? (different symantics)
+from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+
+
+
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-cropped_path = Path("/home/anas/thesis/results/cropped/")
-reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
+# [] LPIPS commented out for now
+# Initialised once and reused — LPIPS has learnable weights so we keep it as a module
+# _lpips_metric = None
 
-# reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
-# cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
+# def get_lpips_metric(device):
+#     global _lpips_metric
+#     if _lpips_metric is None:
+#         _lpips_metric = LearnedPerceptualImagePatchSimilarity(net_type="alex", normalize=True).to(device)
+#         _lpips_metric.eval()
+#     return _lpips_metric
+
+#cropped_path = Path("/home/anas/thesis/results/cropped/")
+#reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
+
+reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
+cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
 
 os.makedirs(reconstruction_path, exist_ok=True)
 os.makedirs(cropped_path, exist_ok=True)
@@ -109,6 +130,31 @@ def images_every_10_epochs(test_dataset, model,epoch ):
             counter+=1
     
     model.train()
+
+
+def compute_metrics(original, reconstructed):
+    """Compute PSNR, SSIM, and LPIPS between original and reconstructed tensors.
+    Expects tensors of shape (B, C, H, W) in [0, 1] range.
+    Returns a dict with scalar float values.
+    """
+    device = original.device
+
+    # PSNR & SSIM — torchmetrics handles batches natively
+    psnr_val  = psnr_metric(reconstructed, original, data_range=1.0).item()
+    ssim_val  = ssim_metric(reconstructed, original, data_range=1.0).item()
+
+    # Lpip commented out for now
+    # LPIPS expects inputs in [-1, 1] when normalize=False, but we set normalize=True
+    # so [0, 1] inputs are fine.  Use no_grad to avoid storing the graph.
+    # lpips_fn  = get_lpips_metric(device)
+    # # LPIPS only supports 3-channel images; if satellite data has more channels,
+    # # fall back to the first 3 bands.
+    # orig_3ch  = original[:, :3].clamp(0, 1)
+    # recon_3ch = reconstructed[:, :3].clamp(0, 1)
+    # with torch.no_grad():
+    #     lpips_val = lpips_fn(recon_3ch, orig_3ch).item()
+
+    return {"psnr": psnr_val, "ssim": ssim_val} # , "lpips": lpips_val
 
 class AverageMeter:
     """Compute running average."""
@@ -186,11 +232,19 @@ def train_one_epoch(
                 f"\tAux loss: {aux_loss.item():.2f}"
             )
 
+        # Compute perceptual metrics on the current batch (detached, no grad needed)
+        with torch.no_grad():
+            x_hat = out_net["x_hat"].clamp(0, 1)
+            batch_metrics = compute_metrics(d, x_hat)
+
         wandb_obj.log( {
             "train/Rate Distortion Loss": out_criterion["loss"].item(),
             "train/MSE Loss Training" : out_criterion["mse_loss"].item(), 
             "train/Bpp Loss Training" : out_criterion["bpp_loss"].item(),
-            "train/Aux Loss Training" : aux_loss.item()
+            "train/Aux Loss Training" : aux_loss.item(),
+            "train/PSNR Training": batch_metrics["psnr"],
+            "train/SSIM Training": batch_metrics["ssim"],
+            # "train/LPIPS":                batch_metrics["lpips"]
         })
 
 
@@ -202,6 +256,9 @@ def test_epoch(epoch, test_dataloader, model, criterion):
     bpp_loss = AverageMeter()
     mse_loss = AverageMeter()
     aux_loss = AverageMeter()
+    psnr_meter  = AverageMeter()
+    ssim_meter  = AverageMeter()
+    # lpips_meter = AverageMeter()
 
     with torch.no_grad():
         for d in test_dataloader:
@@ -213,6 +270,12 @@ def test_epoch(epoch, test_dataloader, model, criterion):
             bpp_loss.update(out_criterion["bpp_loss"])
             loss.update(out_criterion["loss"])
             mse_loss.update(out_criterion["mse_loss"])
+
+            x_hat = out_net["x_hat"].clamp(0, 1)
+            metrics = compute_metrics(d, x_hat)
+            psnr_meter.update(metrics["psnr"],  n=d.size(0))
+            ssim_meter.update(metrics["ssim"],  n=d.size(0))
+            # lpips_meter.update(metrics["lpips"], n=d.size(0))
 
     print(
         f"Test epoch {epoch}: Average losses:"
@@ -227,6 +290,9 @@ def test_epoch(epoch, test_dataloader, model, criterion):
         "MSE_loss_ma" : mse_loss.avg, 
         "Bpp_loss_ma" : bpp_loss.avg,
         "Aux_loss_ma" : aux_loss.avg, 
+        "PSNR_ma":      psnr_meter.avg,
+        "SSIM_ma":      ssim_meter.avg,
+        # "LPIPS_ma":     lpips_meter.avg,
     }
 
 
@@ -449,6 +515,9 @@ def main(argv):
             "eval/MSE_loss_ma" : losses["MSE_loss_ma"], 
             "eval/Bpp_loss_ma" : losses["Bpp_loss_ma"],
             "eval/Aux_loss_ma" : losses["Aux_loss_ma"], 
+            "eval/PSNR":        losses["PSNR_ma"],
+            "eval/SSIM":        losses["SSIM_ma"],
+            # "eval/LPIPS":       losses["LPIPS_ma"],
 
             }
         )
