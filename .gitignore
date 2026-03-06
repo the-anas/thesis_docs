@@ -4,3 +4,4 @@
 *.out
 /images/
 /__pycache__/
+/throw_away_images

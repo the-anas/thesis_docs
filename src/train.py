@@ -81,11 +81,18 @@ timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 #         _lpips_metric.eval()
 #     return _lpips_metric
 
-#cropped_path = Path("/home/anas/thesis/results/cropped/")
-#reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
+# local path
+cropped_path = Path("/home/anas/thesis/results/cropped/")
+reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
 
-reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
-cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
+# mcml cluster paths
+# reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
+# cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
+
+# cip pool gpu path
+# cropped_path = Path("/home/ra42tif/thesis_docs/results/cropped")
+# reconstruction_path = Path("/home/ra42tif/thesis_docs/results/reconstructed")
+
 
 os.makedirs(reconstruction_path, exist_ok=True)
 os.makedirs(cropped_path, exist_ok=True)
