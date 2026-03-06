@@ -159,6 +159,6 @@ def save_tensor_as_image(tensor, path):
     # print(img_array)
     # print(tensor.shape)
     img = Image.fromarray(img_array)
-    print("PATH is")
-    print(path)
+    # print("PATH is")
+    # print(path)
     img.save(path)

@@ -111,29 +111,29 @@ def images_every_10_epochs(test_dataset, model,epoch ):
     # Create a subset and a new dataloader
     subset = Subset(test_dataset, random_indices)
     random_loader = DataLoader(subset, batch_size=10, shuffle=False)
-    print("init saving images")
+    # print("init saving images")
     for ind, tens in enumerate(random_loader):
-        print(f"Currently in image number {ind}")
+        # print(f"Currently in image number {ind}")
         counter=0
-        print("shape tens", tens.shape)
+        # print("shape tens", tens.shape)
         for sec_ind, image in enumerate(tens):
-            print("image type and shape", image.shape, type(image))
-            print(f"counter is {counter}")
+            # print("image type and shape", image.shape, type(image))
+            # print(f"counter is {counter}")
             image = image.to(device)
             
             save_tensor_as_image(image, Path(cropped_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
-            print("cropped saved")
+            # print("cropped saved")
             tensor = image.unsqueeze(0)
             # print("relevant")
-            print(type(tensor))
-            print(tensor.shape)
+            # print(type(tensor))
+            # print(tensor.shape)
             out = model.compress(tensor)
             x_hat = model.decompress(out["strings"], out["shape"])
             # print(type(x_hat))
             # print(type(x_hat["x_hat"]))
             # print(x_hat["x_hat"].shape)
             save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
-            print("reconstructed saved")
+            # print("reconstructed saved")
             counter+=1
     
     model.train()

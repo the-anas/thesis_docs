@@ -15,10 +15,10 @@ def save_tensor_as_image(tensor, path):
     # 3. Convert to (H, W, C) for PIL
     img_array = tensor.permute(1, 2, 0).numpy()
     # 4. Save
-    print(img_array)
-    print(tensor.shape)
+    # print(img_array)
+    # print(tensor.shape)
     img = Image.fromarray(img_array)
-    print(path)
+    # print(path)
     img.save(path)
 
 folder = Path("/home/anas/thesis/images/to_compress/originals")
