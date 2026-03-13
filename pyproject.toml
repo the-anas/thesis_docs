@@ -10,6 +10,7 @@ dependencies = [
     "h5py>=3.15.1",
     "lpips>=0.1.4",
     "matplotlib>=3.10.8",
+    "numcodecs>=0.16.5",
     "openimages>=0.0.1",
     "pympler>=1.1",
     "pytorch-ignite>=0.5.3",
@@ -22,4 +23,6 @@ dependencies = [
     "torchmetrics[image]>=1.8.2",
     "torchvision>=0.24.1",
     "wandb>=0.25.0",
+    "xarray>=2026.2.0",
+    "zarr==2.18.0",
 ]

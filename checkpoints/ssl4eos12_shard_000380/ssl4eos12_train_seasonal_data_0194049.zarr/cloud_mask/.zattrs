@@ -1,0 +1,17 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "time",
+        "y",
+        "x"
+    ],
+    "cloud_classes": [
+        "land",
+        "water",
+        "snow",
+        "thin_cloud",
+        "thick_cloud",
+        "cloud_shadow",
+        "no_data"
+    ],
+    "coordinates": "spatial_ref"
+}

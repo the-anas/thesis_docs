@@ -28,7 +28,7 @@ from pathlib import Path
 from torch.utils.data import Subset, DataLoader
 import os
 import random
-
+from loader import SSL4EOS12RGBDataset
 
 from torchmetrics.functional import peak_signal_noise_ratio as psnr_metric
 from torchmetrics.functional import structural_similarity_index_measure as ssim_metric
@@ -403,8 +403,11 @@ def main(argv):
     # train_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="train", transform=train_transforms)
     # test_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="test", transform=test_transforms)
 
-    train_dataset = ImageFolder(args.dataset, split="train", transform=train_transforms)
-    test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
+    # train_dataset = ImageFolder(args.dataset, split="train", transform=train_transforms)
+    # test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
+
+    train_dataset = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/train/', is_train=True)
+    test_dataset   = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/val/',   is_train=False)
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
 
