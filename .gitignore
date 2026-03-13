@@ -2,7 +2,7 @@
 /wandb
 /results
 *.out
-/images/
+images/
 /__pycache__/
 /throw_away_images
 checkpoints/
