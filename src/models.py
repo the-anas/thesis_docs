@@ -48,11 +48,8 @@ from compressai.models.base import (
 from compressai.models.utils import conv, deconv
 
 
-# [] ask toby about this issue, if running from train.py it is fine, but if running parameter_count.py then 
-# i need to add src. beforehand, i understand why but how can i just avoid this issue and have safe consistent imports
-# [] same thing  for the model after
 from new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
-from new_transforms import Encoder_CrossAttention, Decoder_CrossAttention
+from new_transforms import Encoder_CrossAttention, Decoder_CrossAttention, Encoder_BahdanauAttention, Decoder_BahdanauAttention
 
 import gzip
 import io
@@ -61,7 +58,7 @@ __all__ = [
     "CompressionModel",
     # "FactorizedPrior",
     # "FactorizedPriorReLU",
-    "ScaleHyperprior",
+    # "ScaleHyperprior",
     # "MeanScaleHyperprior",
     # "JointAutoregressiveHierarchicalPriors",
     "get_scale_table",
@@ -287,4 +284,162 @@ class ScaleHyperpriorCrossAttention(CompressionModel):
         # ---- 10) Unpatchify to full image ----
         x_hat = unpatchify(x_hat_p, (shape[2][2], shape[2][3]))
         
+        return {"x_hat": x_hat}
+
+
+##########
+# model with bahdanau  attention added 
+############
+
+# models_v2.py
+
+
+
+
+@register_model("bmshj2018-hyperprior-bahdanau")
+class ScaleHyperpriorBahdanau(CompressionModel):
+    """
+    Scale hyperprior where:
+      - the embedding model operates on individual patches (not the full image)
+      - encoder/decoder use Bahdanau (additive) cross-attention
+    """
+
+    def __init__(self, N, M, K, embedding_type="downsample_cnn", patch_size: int = 16, **kwargs):
+        super().__init__(**kwargs)
+
+        # [] change this so it just used the downsampling
+        # embedding model operates on a single patch (3, Hp, Wp)
+        if embedding_type == "avgpool":
+            self.embedding_model = LowResMask()
+            K = 3
+        elif embedding_type == "downsample_cnn":
+            # DownsampleCNN already accepts any (B, 3, H, W) — patch is just a smaller H,W
+            # BUT: with patch_size=16, the CNN downsamples 6x (64->1), which is too aggressive.
+            # Use fewer stride-2 convs — see note below.
+            self.embedding_model = DownsampleCNN(N, K)
+        else:
+            raise ValueError(f"Unknown embedding_type: {embedding_type}")
+
+        self.entropy_bottleneck   = EntropyBottleneck(N)
+        self.gaussian_conditional = GaussianConditional(None)
+        self.y_ent_bot            = EntropyBottleneck(N)
+
+        self.g_a = Encoder_BahdanauAttention(N, M, K)
+        self.g_s = Decoder_BahdanauAttention(N, M, K)
+
+        self.h_a = nn.Sequential(
+            conv(M, N, stride=1, kernel_size=3),
+            nn.ReLU(inplace=True),
+            conv(N, N),
+            nn.ReLU(inplace=True),
+            conv(N, N),
+        )
+        self.h_s = nn.Sequential(
+            deconv(N, N),
+            nn.ReLU(inplace=True),
+            deconv(N, N),
+            nn.ReLU(inplace=True),
+            conv(N, M, stride=1, kernel_size=3),
+            nn.ReLU(inplace=True),
+        )
+
+        self.patch_size = patch_size
+        self.N = int(N)
+        self.M = int(M)
+        self.K = int(K)
+
+    @property
+    def downsampling_factor(self) -> int:
+        return 2 ** (4 + 2)
+
+    def _embed_patches(self, x_flat: torch.Tensor) -> torch.Tensor:
+        """
+        Run the embedding model on already-flattened patches.
+
+        Args:
+            x_flat: (B*P, 3, Hp, Wp)
+        Returns:
+            y_g:    (B*P, K, h_g, w_g)
+
+        KEY DIFFERENCE from original: we pass individual patches, not the
+        full image. No broadcast/expand is needed — every patch gets its own
+        distinct embedding.
+        """
+        return self.embedding_model(x_flat)  # (B*P, K, h_g, w_g)
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        x_p = patchify(x, patch_size=self.patch_size)       # (B, P, C, Hp, Wp)
+        B, P, C, Hp, Wp = x_p.shape
+        Gh = H // Hp
+        Gw = W // Wp
+
+        x_flat = x_p.reshape(B * P, C, Hp, Wp)             # (B*P, 3, Hp, Wp)
+
+        # ---- per-patch embedding (no broadcast!) ----
+        y_g = self._embed_patches(x_flat)                   # (B*P, K, h_g, w_g)
+
+        # ---- encode ----
+        y = self.g_a(x_p, y_g)                             # (B*P, M, h, w)
+
+        # ---- hyper-prior ----
+        z = self.h_a(torch.abs(y))
+        z_hat, z_likelihoods = self.entropy_bottleneck(z)
+        scales_hat = self.h_s(z_hat)
+
+        y_hat, y_likelihoods    = self.gaussian_conditional(y, scales_hat)
+        y_g_hat, y_g_likelihoods = self.y_ent_bot(y_g)
+
+        # ---- decode ----
+        x_hat_flat = self.g_s(y_hat, y_g_hat)              # (B*P, 3, Hp, Wp)
+        x_hat_p    = x_hat_flat.reshape(B, P, 3, x_hat_flat.shape[-2], x_hat_flat.shape[-1])
+        x_hat      = unpatchify(x_hat_p, (Gh, Gw))
+
+        return {
+            "x_hat": x_hat,
+            "likelihoods": {
+                "y":   y_likelihoods,
+                "z":   z_likelihoods,
+                "y_g": y_g_likelihoods,
+            },
+        }
+
+    def compress(self, x):
+        B, C, H, W = x.shape
+        x_p = patchify(x, patch_size=self.patch_size)
+        B, P, C, Hp, Wp = x_p.shape
+        Gh, Gw = H // Hp, W // Wp
+
+        x_flat = x_p.reshape(B * P, C, Hp, Wp)
+        y_g    = self._embed_patches(x_flat)
+
+        y      = self.g_a(x_p, y_g)
+        z      = self.h_a(torch.abs(y))
+
+        z_strings   = self.entropy_bottleneck.compress(z)
+        z_hat       = self.entropy_bottleneck.decompress(z_strings, z.size()[-2:])
+        y_g_strings = self.y_ent_bot.compress(y_g)
+
+        scales_hat  = self.h_s(z_hat)
+        indexes     = self.gaussian_conditional.build_indexes(scales_hat)
+        y_strings   = self.gaussian_conditional.compress(y, indexes)
+
+        return {
+            "strings": [y_strings, z_strings, y_g_strings],
+            "shape":   [z.size()[-2:], y_g.size()[-2:], [B, P, Gh, Gw]],
+        }
+
+    def decompress(self, strings, shape):
+        z_hat   = self.entropy_bottleneck.decompress(strings[1], shape[0])
+        y_g_hat = self.y_ent_bot.decompress(strings[2], shape[1])
+
+        scales_hat = self.h_s(z_hat)
+        indexes    = self.gaussian_conditional.build_indexes(scales_hat)
+        y_hat      = self.gaussian_conditional.decompress(strings[0], indexes, z_hat.dtype)
+
+        x_hat_flat = self.g_s(y_hat, y_g_hat).clamp_(0, 1)
+        B, P, Gh, Gw = shape[2]
+        x_hat_p    = x_hat_flat.reshape(B, P, 3, x_hat_flat.shape[-2], x_hat_flat.shape[-1])
+        x_hat      = unpatchify(x_hat_p, (Gh, Gw))
+
         return {"x_hat": x_hat}

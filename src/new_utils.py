@@ -162,3 +162,24 @@ def save_tensor_as_image(tensor, path):
     # print("PATH is")
     # print(path)
     img.save(path)
+
+# new_utils_v2.py
+
+class PatchEmbedCNN(nn.Module):
+    """
+    Lightweight CNN to embed a single patch.
+    For a 16x16 patch: 2 stride-2 convs -> 4x4 spatial output.
+    For a 32x32 patch: 3 stride-2 convs -> 4x4 spatial output.
+    """
+    def __init__(self, K: int, patch_size: int = 16):
+        super().__init__()
+        # choose depth based on patch size so output is always ~4x4
+        n_stride = max(1, (patch_size - 1).bit_length() - 2)   # 16->2, 32->3, 64->4
+        layers = [conv(3, K), GDN(K)]
+        for _ in range(n_stride - 1):
+            layers += [conv(K, K), GDN(K)]
+        layers += [conv(K, K, stride=1, kernel_size=3)]
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):  # (B*P, 3, Hp, Wp) -> (B*P, K, ~4, ~4)
+        return self.net(x)
