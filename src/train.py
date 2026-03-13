@@ -406,8 +406,8 @@ def main(argv):
     # train_dataset = ImageFolder(args.dataset, split="train", transform=train_transforms)
     # test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
 
-    train_dataset = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/train/', is_train=True)
-    test_dataset   = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/val/',   is_train=False)
+    train_dataset = SSL4EOS12RGBDataset(args.dataset, is_train=True)
+    test_dataset   = SSL4EOS12RGBDataset(args.dataset,   is_train=False)
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
 
