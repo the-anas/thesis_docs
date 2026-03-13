@@ -62,17 +62,17 @@ class SSL4EOS12RGBDataset(Dataset):
 
 
 # ---- datasets ----
-train_dataset = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/train/', is_train=True)
-val_dataset   = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/val/',   is_train=False)
+# train_dataset = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/train/', is_train=True)
+# val_dataset   = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/val/',   is_train=False)
 
-print(f"Train images: {len(train_dataset):,}")
-print(f"Val images:   {len(val_dataset):,}")
+# print(f"Train images: {len(train_dataset):,}")
+# print(f"Val images:   {len(val_dataset):,}")
 
-# ---- loaders ----
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True,  num_workers=4, pin_memory=True)
-val_loader   = DataLoader(val_dataset,   batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
+# # ---- loaders ----
+# train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True,  num_workers=4, pin_memory=True)
+# val_loader   = DataLoader(val_dataset,   batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
 
-# ---- sanity check ----
-batch = next(iter(train_loader))
-print(f"Batch shape:  {batch.shape}")                            # (8, 3, 256, 256)
-print(f"Value range:  [{batch.min():.3f}, {batch.max():.3f}]")  # [0.0, 1.0]
+# # ---- sanity check ----
+# batch = next(iter(train_loader))
+# print(f"Batch shape:  {batch.shape}")                            # (8, 3, 256, 256)
+# print(f"Value range:  [{batch.min():.3f}, {batch.max():.3f}]")  # [0.0, 1.0]
