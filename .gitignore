@@ -3,6 +3,6 @@
 /results
 *.out
 images/
-/__pycache__/
+/__pycache__
 /throw_away_images
 checkpoints/
