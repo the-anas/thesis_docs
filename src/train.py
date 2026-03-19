@@ -53,12 +53,12 @@ timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 #     return _lpips_metric
 
 # local path
-cropped_path = Path("/home/anas/thesis/results/cropped/")
-reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
+#cropped_path = Path("/home/anas/thesis/results/cropped/")
+#reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
 
 # mcml cluster paths
-# reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
-# cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
+reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
+cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
 
 # cip pool gpu path
 # cropped_path = Path("/home/ra42tif/thesis_docs/results/cropped")
@@ -378,13 +378,17 @@ def main(argv):
     entity="anasnamouchi",
     # Set the wandb project where this run will be logged.
     project="Thesis",
+    name=args.run_name,
+    # use tags too
+    # tags=["trial"],
+
     # Track hyperparameters and run metadata.
     config={
         # "learning_rate": 0.02,
         "architecture": "Hyperprior + Downsample_CNN",
         "dataset": "ssl4eo-small",
         "epochs": args.epochs,
-        "name": args.run_name
+        # "name": args.run_name
     },
 )
     
@@ -406,8 +410,13 @@ def main(argv):
     # train_dataset = ImageFolder(args.dataset, split="train", transform=train_transforms)
     # test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
 
-    train_dataset = SSL4EOS12RGBDataset(args.dataset, is_train=True)
-    test_dataset   = SSL4EOS12RGBDataset(args.dataset,   is_train=False)
+    # print(args.dataset)
+    train_dataset = SSL4EOS12RGBDataset(
+        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
+    , is_train=True)
+    test_dataset   = SSL4EOS12RGBDataset(
+        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB",
+       is_train=False)
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
 

@@ -11,6 +11,11 @@ import torchvision.transforms.functional as TF
 
 class SSL4EOS12RGBDataset(Dataset):
     def __init__(self, data_dir, crop_size=256, is_train=True):
+        # if is_train:
+        #     data_dir = os.path.join(data_dir, "train/S2RGB/")
+        # else:
+        #     data_dir = os.path.join(data_dir, "val/S2RGB/")
+
         self.files                 = sorted(glob.glob(os.path.join(data_dir, '*.zarr.zip')))
         self.crop_size             = crop_size
         self.is_train              = is_train
