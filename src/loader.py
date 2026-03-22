@@ -7,6 +7,10 @@ import zarr.storage
 import xarray as xr
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
+from models import ScaleHyperprior, ScaleHyperpriorBahdanau
+
+models_dict = {"basic-hyperprior": ScaleHyperprior, 
+               "bahdanau-hyperprior":ScaleHyperpriorBahdanau}
 
 
 class SSL4EOS12RGBDataset(Dataset):

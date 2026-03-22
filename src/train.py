@@ -36,7 +36,7 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim_
 # [] also omitting lpips for now, answer the following questions beforehand
     # - are we supposed to run lpips on this specific model or on other alternate pre-trained models?? (different symantics)
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
-
+from loader import models_dict
 
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -57,20 +57,18 @@ timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 #reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
 
 # mcml cluster paths
-reconstruction_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/reconstructed/")
-cropped_path = Path("/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/cropped/")
 
 # cip pool gpu path
 # cropped_path = Path("/home/ra42tif/thesis_docs/results/cropped")
 # reconstruction_path = Path("/home/ra42tif/thesis_docs/results/reconstructed")
 
 
-os.makedirs(reconstruction_path, exist_ok=True)
-os.makedirs(cropped_path, exist_ok=True)
+# os.makedirs(reconstruction_path, exist_ok=True)
+# os.makedirs(cropped_path, exist_ok=True)
 
 
 # save example images from test suite every 10 epochs
-def images_every_10_epochs(test_dataset, model,epoch ): 
+def images_every_10_epochs(test_dataset, model,epoch, reconstruction_path, cropped_path ): 
     device = next(model.parameters()).device   
     model.eval()
     model.update(force=True)
@@ -172,7 +170,8 @@ def configure_optimizers(net, args):
 
 
 def train_one_epoch(
-    model, criterion, train_dataloader, optimizer, aux_optimizer, epoch, clip_max_norm, wandb_obj
+    model, criterion, train_dataloader, optimizer, aux_optimizer, epoch, clip_max_norm, wandb_obj,
+    lr_scheduler
 ):
     model.train()
     device = next(model.parameters()).device
@@ -194,6 +193,7 @@ def train_one_epoch(
         if clip_max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
         optimizer.step()
+        lr_scheduler.step(out_criterion["loss"].item()) 
 
         aux_loss = model.aux_loss()
         aux_loss.backward()
@@ -222,6 +222,7 @@ def train_one_epoch(
             "train/Aux Loss Training" : aux_loss.item(),
             "train/PSNR Training": batch_metrics["psnr"],
             "train/SSIM Training": batch_metrics["ssim"],
+            "train/Learning Rate":        optimizer.param_groups[0]["lr"], 
             # "train/LPIPS":                batch_metrics["lpips"]
         })
 
@@ -285,8 +286,9 @@ def parse_args(argv):
     parser.add_argument(
         "-m",
         "--model",
-        default="bmshj2018-factorized",
-        choices=image_models.keys(),
+        # default="bmshj2018-factorized",
+        required=True,
+        choices=models_dict.keys(),
         help="Model architecture (default: %(default)s)",
     )
     parser.add_argument(
@@ -303,6 +305,7 @@ def parse_args(argv):
         "-nm",
         "--run_name",
         default=timestamp,
+        required=True,
         type=str,
         help="Name of the run in Weights and biases (default: %(default)s)",
     )
@@ -360,6 +363,17 @@ def parse_args(argv):
         type=float,
         help="gradient clipping max norm (default: %(default)s",
     )
+    parser.add_argument(
+    "--tags",
+    nargs="+",         
+    default=[],
+    type=str,
+    help="Tags for the run"
+    )
+    parser.add_argument("-K", type=int, help="size of K latent space", required=True)
+    parser.add_argument("-M", type=int, help="size of M latent space", required=True)
+    parser.add_argument("-N", type=int, help="size of K latent space", required=True)
+
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint")
     args = parser.parse_args(argv)
     return args
@@ -367,6 +381,8 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
+    reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/{args.model}/reconstructed/")
+    cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/{args.model}/cropped/")
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
@@ -380,7 +396,7 @@ def main(argv):
     project="Thesis",
     name=args.run_name,
     # use tags too
-    # tags=["trial"],
+    tags=args.tags,
 
     # Track hyperparameters and run metadata.
     config={
@@ -392,9 +408,6 @@ def main(argv):
     },
 )
     
-    # Random crop below is not causing any problems, quite the opposite
-    # it is needed for the proper image sizes 
-    # the model will end up being trained on 256*256 images regardless of their size in the dataset
     # [] 256 is hardcoded and needs to change
     train_transforms = transforms.Compose(
         [transforms.RandomCrop(256), transforms.ToTensor()]
@@ -411,6 +424,7 @@ def main(argv):
     # test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
 
     # print(args.dataset)
+    # [] edit below to start taking in path
     train_dataset = SSL4EOS12RGBDataset(
         "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
     , is_train=True)
@@ -442,17 +456,22 @@ def main(argv):
 
     embedding_model = LowResMask()
     
+    if args.model=="basic-hyperprior":
+        net = models_dict[args.model](args.N, args.M)
+    else:
+        net = models_dict[args.model](args.N, args.M, args.K, embedding_type="downsample_cnn")
 
-    #net = image_models[args.model](quality=3)
     # net = ScaleHyperpriorCrossAttention(30, 24, 30, embedding_model=embedding_model, embedding_type="downsample_cnn")
-    net = ScaleHyperpriorBahdanau(30, 24, 30, embedding_type="downsample_cnn")
+    # net = ScaleHyperpriorBahdanau(30, 24, 30, embedding_type="downsample_cnn")
     net = net.to(device)
+
+    print(f"Model initilaized is {args.model} with {args.N,args.M,args.K}")
 
     if args.cuda and torch.cuda.device_count() > 1:
         net = CustomDataParallel(net)
 
     optimizer, aux_optimizer = configure_optimizers(net, args)
-    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min")
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min", patience=500) # maybe play with patience if you notice problems, or og back to updating every epoch
     criterion = RateDistortionLoss(lmbda=args.lmbda)
 
     last_epoch = 0
@@ -468,12 +487,6 @@ def main(argv):
     best_loss = float("inf")
     for epoch in range(last_epoch, args.epochs):
 
-        ####
-        # if epoch %10 == 0:
-        #     images_every_10_epochs(test_dataset,net,epoch)
-
-
-        ###
         print(f"Learning rate: {optimizer.param_groups[0]['lr']}")
         train_one_epoch(
             net,
@@ -483,14 +496,15 @@ def main(argv):
             aux_optimizer,
             epoch,
             args.clip_max_norm,
-            wandb_obj = run
+            wandb_obj = run,
+            lr_scheduler=lr_scheduler
         )
         losses = test_epoch(epoch, test_dataloader, net, criterion)
-        lr_scheduler.step(losses["Loss_ma"])
+        # lr_scheduler updated to update every step using training loss instead of validation loss
+        # lr_scheduler.step(losses["Loss_ma"])
         
-        # [] put the saving images below
         if epoch %10 == 0:
-            images_every_10_epochs(test_dataset,net,epoch)
+            images_every_10_epochs(test_dataset,net,epoch, reconstruction_path, cropped_path)
         
 
             

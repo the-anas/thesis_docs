@@ -183,3 +183,76 @@ class PatchEmbedCNN(nn.Module):
 
     def forward(self, x):  # (B*P, 3, Hp, Wp) -> (B*P, K, ~4, ~4)
         return self.net(x)
+    
+
+
+# ─────────────────────────────────────────────
+# METRICS
+# ─────────────────────────────────────────────
+
+def patch_entropy(patch: torch.Tensor, num_bins: int = 256) -> float:
+    vals = patch.flatten().float()
+    if vals.max() > 1.0:
+        vals = vals / 255.0
+    hist = torch.histc(vals, bins=num_bins, min=0.0, max=1.0)
+    prob = hist / hist.sum()
+    prob = prob[prob > 0]
+    return -torch.sum(prob * torch.log2(prob)).item()
+
+
+def cosine_similarity(patch_a: torch.Tensor, patch_b: torch.Tensor) -> float:
+    vec_a = patch_a.flatten().float()
+    vec_b = patch_b.flatten().float()
+    return F.cosine_similarity(vec_a.unsqueeze(0), vec_b.unsqueeze(0)).item()
+
+
+def mutual_information(patch_a: torch.Tensor, patch_b: torch.Tensor, num_bins: int = 64) -> float:
+    def to_prob(patch):
+        vals = patch.flatten().float()
+        if vals.max() > 1.0:
+            vals = vals / 255.0
+        hist = torch.histc(vals, bins=num_bins, min=0.0, max=1.0)
+        return hist / hist.sum()
+
+    def entropy_from_prob(p):
+        p = p[p > 0]
+        return -torch.sum(p * torch.log2(p))
+
+    prob_a = to_prob(patch_a)
+    prob_b = to_prob(patch_b)
+
+    vals_a = patch_a.flatten().float()
+    vals_b = patch_b.flatten().float()
+    if vals_a.max() > 1.0:
+        vals_a = vals_a / 255.0
+    if vals_b.max() > 1.0:
+        vals_b = vals_b / 255.0
+
+    num_bins_j = num_bins
+    idx_a = (vals_a * (num_bins_j - 1)).long().clamp(0, num_bins_j - 1)
+    idx_b = (vals_b * (num_bins_j - 1)).long().clamp(0, num_bins_j - 1)
+    joint_hist = torch.zeros(num_bins_j, num_bins_j)
+    joint_hist.index_put_((idx_a, idx_b), torch.ones_like(vals_a), accumulate=True)
+    prob_joint = joint_hist / joint_hist.sum()
+
+    H_a  = entropy_from_prob(prob_a)
+    H_b  = entropy_from_prob(prob_b)
+    H_ab = entropy_from_prob(prob_joint.flatten())
+
+    return max((H_a + H_b - H_ab).item(), 0.0)
+
+
+def kl_divergence(patch_a: torch.Tensor, patch_b: torch.Tensor, num_bins: int = 64, epsilon: float = 1e-10) -> float:
+    def to_prob(patch):
+        vals = patch.flatten().float()
+        if vals.max() > 1.0:
+            vals = vals / 255.0
+        hist = torch.histc(vals, bins=num_bins, min=0.0, max=1.0)
+        return hist / hist.sum()
+
+    p = to_prob(patch_a)
+    q = to_prob(patch_b) + epsilon
+    q = q / q.sum()
+
+    return max(torch.sum(p * torch.log2((p + epsilon) / q)).item(), 0.0)
+
