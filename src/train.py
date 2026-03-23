@@ -381,8 +381,8 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
-    reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/{args.model}/reconstructed/")
-    cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/{args.model}/cropped/")
+    reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
+    cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
@@ -499,45 +499,53 @@ def main(argv):
             wandb_obj = run,
             lr_scheduler=lr_scheduler
         )
-        losses = test_epoch(epoch, test_dataloader, net, criterion)
-        # lr_scheduler updated to update every step using training loss instead of validation loss
-        # lr_scheduler.step(losses["Loss_ma"])
-        
-        if epoch %10 == 0:
-            images_every_10_epochs(test_dataset,net,epoch, reconstruction_path, cropped_path)
-        
 
+        # perform evaluation only every 3 epochs
+        if epochs%3==0:
+                
+            losses = test_epoch(epoch, test_dataloader, net, criterion)
+            # lr_scheduler updated to update every step using training loss instead of validation loss
+            # lr_scheduler.step(losses["Loss_ma"])
             
 
-        # [] above is the update to lr, make sure you tack it then
-        is_best = losses["Loss_ma"] < best_loss
-        best_loss = min(losses["Loss_ma"], best_loss)
+            is_best = losses["Loss_ma"] < best_loss
+            best_loss = min(losses["Loss_ma"], best_loss)
 
-        run.log({
-            # [] just commeneted for now, need to find a way for tracking the scheduler properly
-            #"lr_scheduler": lr_scheduler,
-            "eval/Loss_ma" : losses["Loss_ma"], 
-            "eval/MSE_loss_ma" : losses["MSE_loss_ma"], 
-            "eval/Bpp_loss_ma" : losses["Bpp_loss_ma"],
-            "eval/Aux_loss_ma" : losses["Aux_loss_ma"], 
-            "eval/PSNR":        losses["PSNR_ma"],
-            "eval/SSIM":        losses["SSIM_ma"],
-            # "eval/LPIPS":       losses["LPIPS_ma"],
+            run.log({
+                # [] just commeneted for now, need to find a way for tracking the scheduler properly
+                #"lr_scheduler": lr_scheduler,
+                "eval/Loss_ma" : losses["Loss_ma"], 
+                "eval/MSE_loss_ma" : losses["MSE_loss_ma"], 
+                "eval/Bpp_loss_ma" : losses["Bpp_loss_ma"],
+                "eval/Aux_loss_ma" : losses["Aux_loss_ma"], 
+                "eval/PSNR":        losses["PSNR_ma"],
+                "eval/SSIM":        losses["SSIM_ma"],
+                # "eval/LPIPS":       losses["LPIPS_ma"],
 
-            }
-        )
-        if args.save:
-            save_checkpoint(
-                {
-                    "epoch": epoch,
-                    "state_dict": net.state_dict(),
-                    "loss": losses["Loss_ma"],
-                    "optimizer": optimizer.state_dict(),
-                    "aux_optimizer": aux_optimizer.state_dict(),
-                    "lr_scheduler": lr_scheduler.state_dict(),
-                },
-                is_best,
+                }
             )
+
+        if args.save:
+        # trying to save only if there is an improvement, if there are problems with this go back to older version
+            if is_best:
+                        
+                save_checkpoint(
+                    {
+                        "epoch": epoch,
+                        "state_dict": net.state_dict(),
+                        "loss": losses["Loss_ma"],
+                        "optimizer": optimizer.state_dict(),
+                        "aux_optimizer": aux_optimizer.state_dict(),
+                        "lr_scheduler": lr_scheduler.state_dict(),
+                    },
+                    is_best,
+                )
+        
+        # save example images
+        if epoch %5 == 0:
+            images_every_10_epochs(test_dataset,net,epoch, reconstruction_path, cropped_path)
+        
+        
 
 
 if __name__ == "__main__":
