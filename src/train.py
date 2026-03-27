@@ -39,8 +39,16 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 from loader import models_dict
 
 
-timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
+
+import gc
+del variables
+gc.collect()
+
+
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+torch.cuda.empty_cache()
+torch.cuda.reset_peak_memory_stats()
 # [] LPIPS commented out for now
 # Initialised once and reused — LPIPS has learnable weights so we keep it as a module
 # _lpips_metric = None
@@ -275,10 +283,10 @@ def test_epoch(epoch, test_dataloader, model, criterion):
     }
 
 
-def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
+def save_checkpoint(state, is_best, filename=f"checkpoint.pth.tar", copy_name="checkpoint_best_loss.pth.tar"):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, "checkpoint_best_loss.pth.tar")
+        shutil.copyfile(filename, copy_name)
 
 
 def parse_args(argv):
@@ -381,14 +389,15 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
-    reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
-    cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/results/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+    reconstruction_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
+    cropped_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
         random.seed(args.seed)
 
     # init wandb
+    print("here pre init of wandb")
     run = wandb.init(
     # Set the wandb entity where your project will be logged (generally your team name).
     entity="anasnamouchi",
@@ -426,13 +435,16 @@ def main(argv):
     # print(args.dataset)
     # [] edit below to start taking in path
     train_dataset = SSL4EOS12RGBDataset(
-        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
+        # "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
+        "/home/ra42tif/datasets/train_10gb_version/subset_train_big_dataset"
     , is_train=True)
     test_dataset   = SSL4EOS12RGBDataset(
-        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB",
+        # "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB",
+        "/home/ra42tif/datasets/eval_10gb_version/S2RGB",
        is_train=False)
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
+    print(device)
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -501,7 +513,7 @@ def main(argv):
         )
 
         # perform evaluation only every 3 epochs
-        if epochs%3==0:
+        if epoch%3==0:
                 
             losses = test_epoch(epoch, test_dataloader, net, criterion)
             # lr_scheduler updated to update every step using training loss instead of validation loss
@@ -539,6 +551,8 @@ def main(argv):
                         "lr_scheduler": lr_scheduler.state_dict(),
                     },
                     is_best,
+		filename=f"checkpoint_{args.model}_{args.N}_{args.M}_{args.K}.pth.tar",
+		copy_name= f"checkpoint_best_loss_{args.model}_{args.N}_{args.M}_{args.K}.pth.tar"
                 )
         
         # save example images
