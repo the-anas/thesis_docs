@@ -32,47 +32,12 @@ from loader import SSL4EOS12RGBDataset
 
 from torchmetrics.functional import peak_signal_noise_ratio as psnr_metric
 from torchmetrics.functional import structural_similarity_index_measure as ssim_metric
-# [] not that lpips can only be used with rgb images
-# [] also omitting lpips for now, answer the following questions beforehand
-    # - are we supposed to run lpips on this specific model or on other alternate pre-trained models?? (different symantics)
+
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 from loader import models_dict
 
 
-
-
-import gc
-del variables
-gc.collect()
-
-
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-torch.cuda.empty_cache()
-torch.cuda.reset_peak_memory_stats()
-# [] LPIPS commented out for now
-# Initialised once and reused — LPIPS has learnable weights so we keep it as a module
-# _lpips_metric = None
-
-# def get_lpips_metric(device):
-#     global _lpips_metric
-#     if _lpips_metric is None:
-#         _lpips_metric = LearnedPerceptualImagePatchSimilarity(net_type="alex", normalize=True).to(device)
-#         _lpips_metric.eval()
-#     return _lpips_metric
-
-# local path
-#cropped_path = Path("/home/anas/thesis/results/cropped/")
-#reconstruction_path = Path("/home/anas/thesis/results/reconstructed/")
-
-# mcml cluster paths
-
-# cip pool gpu path
-# cropped_path = Path("/home/ra42tif/thesis_docs/results/cropped")
-# reconstruction_path = Path("/home/ra42tif/thesis_docs/results/reconstructed")
-
-
-# os.makedirs(reconstruction_path, exist_ok=True)
-# os.makedirs(cropped_path, exist_ok=True)
 
 
 # save example images from test suite every 10 epochs
@@ -88,29 +53,15 @@ def images_every_10_epochs(test_dataset, model,epoch, reconstruction_path, cropp
     # Create a subset and a new dataloader
     subset = Subset(test_dataset, random_indices)
     random_loader = DataLoader(subset, batch_size=10, shuffle=False)
-    # print("init saving images")
     for ind, tens in enumerate(random_loader):
-        # print(f"Currently in image number {ind}")
         counter=0
-        # print("shape tens", tens.shape)
         for sec_ind, image in enumerate(tens):
-            # print("image type and shape", image.shape, type(image))
-            # print(f"counter is {counter}")
-            image = image.to(device)
-            
+            image = image.to(device)            
             save_tensor_as_image(image, Path(cropped_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
-            # print("cropped saved")
             tensor = image.unsqueeze(0)
-            # print("relevant")
-            # print(type(tensor))
-            # print(tensor.shape)
             out = model.compress(tensor)
             x_hat = model.decompress(out["strings"], out["shape"])
-            # print(type(x_hat))
-            # print(type(x_hat["x_hat"]))
-            # print(x_hat["x_hat"].shape)
             save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
-            # print("reconstructed saved")
             counter+=1
     
     model.train()
@@ -127,18 +78,7 @@ def compute_metrics(original, reconstructed):
     psnr_val  = psnr_metric(reconstructed, original, data_range=1.0).item()
     ssim_val  = ssim_metric(reconstructed, original, data_range=1.0).item()
 
-    # Lpip commented out for now
-    # LPIPS expects inputs in [-1, 1] when normalize=False, but we set normalize=True
-    # so [0, 1] inputs are fine.  Use no_grad to avoid storing the graph.
-    # lpips_fn  = get_lpips_metric(device)
-    # # LPIPS only supports 3-channel images; if satellite data has more channels,
-    # # fall back to the first 3 bands.
-    # orig_3ch  = original[:, :3].clamp(0, 1)
-    # recon_3ch = reconstructed[:, :3].clamp(0, 1)
-    # with torch.no_grad():
-    #     lpips_val = lpips_fn(recon_3ch, orig_3ch).item()
-
-    return {"psnr": psnr_val, "ssim": ssim_val} # , "lpips": lpips_val
+    return {"psnr": psnr_val, "ssim": ssim_val}
 
 class AverageMeter:
     """Compute running average."""
@@ -188,9 +128,6 @@ def train_one_epoch(
 
 
         d = d.to(device)
-        # print("type of d", type(d))
-        # pritn("shape of d", d.shape)
-        # print
         optimizer.zero_grad()
         aux_optimizer.zero_grad()
 
@@ -231,7 +168,6 @@ def train_one_epoch(
             "train/PSNR Training": batch_metrics["psnr"],
             "train/SSIM Training": batch_metrics["ssim"],
             "train/Learning Rate":        optimizer.param_groups[0]["lr"], 
-            # "train/LPIPS":                batch_metrics["lpips"]
         })
 
 
@@ -245,7 +181,6 @@ def test_epoch(epoch, test_dataloader, model, criterion):
     aux_loss = AverageMeter()
     psnr_meter  = AverageMeter()
     ssim_meter  = AverageMeter()
-    # lpips_meter = AverageMeter()
 
     with torch.no_grad():
         for d in test_dataloader:
@@ -262,7 +197,6 @@ def test_epoch(epoch, test_dataloader, model, criterion):
             metrics = compute_metrics(d, x_hat)
             psnr_meter.update(metrics["psnr"],  n=d.size(0))
             ssim_meter.update(metrics["ssim"],  n=d.size(0))
-            # lpips_meter.update(metrics["lpips"], n=d.size(0))
 
     print(
         f"Test epoch {epoch}: Average losses:"
@@ -279,7 +213,6 @@ def test_epoch(epoch, test_dataloader, model, criterion):
         "Aux_loss_ma" : aux_loss.avg, 
         "PSNR_ma":      psnr_meter.avg,
         "SSIM_ma":      ssim_meter.avg,
-        # "LPIPS_ma":     lpips_meter.avg,
     }
 
 
@@ -316,6 +249,14 @@ def parse_args(argv):
         required=True,
         type=str,
         help="Name of the run in Weights and biases (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-s",
+        "--system",
+        required=True,
+        type=str,
+        choices=["cip_pool", "mcml"]
+        help="Which system are you running on? mcml cluster or cip pool (default: %(default)s)",
     )
     parser.add_argument(
         "-lr",
@@ -389,8 +330,15 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
-    reconstruction_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
-    cropped_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+
+    if args.system == "cip_pool":    
+        reconstruction_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
+        cropped_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+
+    elif args.system == "mcml":
+        reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
+        cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+        
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
@@ -435,12 +383,12 @@ def main(argv):
     # print(args.dataset)
     # [] edit below to start taking in path
     train_dataset = SSL4EOS12RGBDataset(
-        # "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
-        "/home/ra42tif/datasets/train_10gb_version/subset_train_big_dataset"
+        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
+        # "/home/ra42tif/datasets/train_10gb_version/subset_train_big_dataset"
     , is_train=True)
     test_dataset   = SSL4EOS12RGBDataset(
-        # "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB",
-        "/home/ra42tif/datasets/eval_10gb_version/S2RGB",
+        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB",
+        # "/home/ra42tif/datasets/eval_10gb_version/S2RGB",
        is_train=False)
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
