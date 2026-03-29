@@ -255,7 +255,7 @@ def parse_args(argv):
         "--system",
         required=True,
         type=str,
-        choices=["cip_pool", "mcml", "lightning"]
+        choices=["cip_pool", "mcml", "lightning"],
         help="Which system are you running on? mcml cluster or cip pool (default: %(default)s)",
     )
     parser.add_argument(
