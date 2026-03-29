@@ -255,7 +255,7 @@ def parse_args(argv):
         "--system",
         required=True,
         type=str,
-        choices=["cip_pool", "mcml"]
+        choices=["cip_pool", "mcml", "lightning"]
         help="Which system are you running on? mcml cluster or cip pool (default: %(default)s)",
     )
     parser.add_argument(
@@ -338,6 +338,10 @@ def main(argv):
     elif args.system == "mcml":
         reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
         cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+    
+    elif args.system == "lightning":
+        reconstruction_path = Path(f"/teamspace/studios/this_studio/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
+        cropped_path = Path(f"/teamspace/studios/this_studio/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
         
 
     if args.seed is not None:
@@ -383,13 +387,16 @@ def main(argv):
     # print(args.dataset)
     # [] edit below to start taking in path
     train_dataset = SSL4EOS12RGBDataset(
-        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
+        
+        #"/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
         # "/home/ra42tif/datasets/train_10gb_version/subset_train_big_dataset"
+        "/teamspace/studios/this_studio/train_split"
     , is_train=True)
     test_dataset   = SSL4EOS12RGBDataset(
-        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB",
+        #"/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB",
         # "/home/ra42tif/datasets/eval_10gb_version/S2RGB",
-       is_train=False)
+       "/teamspace/studios/this_studio/val_split"
+       ,is_train=False)
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
     print(device)
