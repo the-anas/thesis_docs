@@ -322,7 +322,7 @@ class ScaleHyperpriorBahdanau(CompressionModel):
 
         self.entropy_bottleneck   = EntropyBottleneck(N)
         self.gaussian_conditional = GaussianConditional(None)
-        self.y_ent_bot            = EntropyBottleneck(N)
+        self.y_ent_bot            = EntropyBottleneck(K)
 
         self.g_a = Encoder_BahdanauAttention(N, M, K)
         self.g_s = Decoder_BahdanauAttention(N, M, K)

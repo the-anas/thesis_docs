@@ -285,7 +285,7 @@ def parse_args(argv):
     parser.add_argument(
         "--test-batch-size",
         type=int,
-        default=64,
+        default=32,
         help="Test batch size (default: %(default)s)",
     )
     parser.add_argument(
