@@ -321,7 +321,7 @@ def parse_args(argv):
         help="Bit-rate distortion parameter (default: %(default)s)",
     )
     parser.add_argument(
-        "--batch-size", type=int, default=16, help="Batch size (default: %(default)s)"
+        "--batch-size", type=int, default=32, help="Batch size (default: %(default)s)"
     )
     parser.add_argument(
         "--test-batch-size",
@@ -434,7 +434,7 @@ def main(argv):
     # dir=f"wandb/{args.run_name}",
     # Set the wandb entity where your project will be logged (generally your team name).
     entity="anasnamouchi",
-    notes="Ran using 20gb subset of dataset, for 20 epochs"
+    notes="Ran using 20gb subset of dataset, for 20 epochs",
     # Set the wandb project where this run will be logged.
     project="Thesis",
     name= args.run_name,
