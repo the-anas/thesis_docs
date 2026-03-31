@@ -272,7 +272,7 @@ def parse_args(argv):
     parser.add_argument(
         "-e",
         "--epochs",
-        default=100,
+        default=20,
         type=int,
         help="Number of epochs (default: %(default)s)",
     )
@@ -389,7 +389,8 @@ def main(argv):
         cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
 
         train_dataset = SSL4EOS12RGBDataset(        
-        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
+        # "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
+        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/20gb_subset_ssl4eo"
         , is_train=True)
 
         test_dataset   = SSL4EOS12RGBDataset(
@@ -430,9 +431,10 @@ def main(argv):
     print("here pre init of wandb")
     run = wandb.init(
     mode=args.wandb_mode,
-    dir=f"wandb/{args.run_name}",
+    # dir=f"wandb/{args.run_name}",
     # Set the wandb entity where your project will be logged (generally your team name).
     entity="anasnamouchi",
+    notes="Ran using 20gb subset of dataset, for 20 epochs"
     # Set the wandb project where this run will be logged.
     project="Thesis",
     name= args.run_name,
