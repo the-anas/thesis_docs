@@ -256,3 +256,6 @@ def kl_divergence(patch_a: torch.Tensor, patch_b: torch.Tensor, num_bins: int = 
 
     return max(torch.sum(p * torch.log2((p + epsilon) / q)).item(), 0.0)
 
+
+def average_entropy(likelihood):
+    return (-torch.log2(likelihood + 1e-9)).mean() 

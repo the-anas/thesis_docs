@@ -19,9 +19,11 @@ from models import ScaleHyperpriorCrossAttention, ScaleHyperpriorBahdanau
 
 from rshf.satmae import SatMAE
 
-from new_utils import LowResMask, save_tensor_as_image
+from new_utils import LowResMask, save_tensor_as_image, average_entropy
 
 import wandb
+# THIS AND NEW_UTILS WERE EDITED
+
 
 from datetime import datetime
 from pathlib import Path
@@ -181,6 +183,10 @@ def test_epoch(epoch, test_dataloader, model, criterion):
     aux_loss = AverageMeter()
     psnr_meter  = AverageMeter()
     ssim_meter  = AverageMeter()
+    y_entropy = AverageMeter()
+    z_entropy = AverageMeter()
+    y_g_present = False
+    y_g_entropy = AverageMeter()
 
     with torch.no_grad():
         for d in test_dataloader:
@@ -198,6 +204,16 @@ def test_epoch(epoch, test_dataloader, model, criterion):
             psnr_meter.update(metrics["psnr"],  n=d.size(0))
             ssim_meter.update(metrics["ssim"],  n=d.size(0))
 
+            y_entropy.update(average_entropy(out_net["likelihoods"]["y"]))
+            z_entropy.update(average_entropy(out_net["likelihoods"]["z"]))
+
+            y_g = out_net["likelihoods"].get("y_g")
+
+            if y_g is not None:
+                y_g_present = True
+                y_g_entropy.update(average_entropy(y_g))
+            
+
     print(
         f"Test epoch {epoch}: Average losses:"
         f"\tLoss: {loss.avg:.3f} |"
@@ -206,13 +222,31 @@ def test_epoch(epoch, test_dataloader, model, criterion):
         f"\tAux loss: {aux_loss.avg:.2f}\n"
     )
 
-    return {
-        "Loss_ma" : loss.avg, # _ma stands for moving average, this comes from AverageMeter()
+    # handeling whether we are working with bahdanau or vanilla model when meaasuring entropy of likelihoods
+
+    if y_g_present:
+        return {
+        "Loss_ma" : loss.avg, 
         "MSE_loss_ma" : mse_loss.avg, 
         "Bpp_loss_ma" : bpp_loss.avg,
         "Aux_loss_ma" : aux_loss.avg, 
         "PSNR_ma":      psnr_meter.avg,
         "SSIM_ma":      ssim_meter.avg,
+        "Y Entropy":    y_entropy.avg,
+        "Z Entropy":    z_entropy.avg,
+        "Y_G Entropy":  y_g_entropy.avg
+    }
+
+
+    return {
+        "Loss_ma" : loss.avg, 
+        "MSE_loss_ma" : mse_loss.avg, 
+        "Bpp_loss_ma" : bpp_loss.avg,
+        "Aux_loss_ma" : aux_loss.avg, 
+        "PSNR_ma":      psnr_meter.avg,
+        "SSIM_ma":      ssim_meter.avg,
+        "Y Entropy":    y_entropy.avg,
+        "Z Entropy":    z_entropy.avg,
     }
 
 
@@ -233,7 +267,7 @@ def parse_args(argv):
         help="Model architecture (default: %(default)s)",
     )
     parser.add_argument(
-        "-d", "--dataset", type=str, required=True, help="Training dataset"
+        "-d", "--dataset", type=str,  help="Training dataset" # required=True,
     )
     parser.add_argument(
         "-e",
@@ -241,6 +275,13 @@ def parse_args(argv):
         default=100,
         type=int,
         help="Number of epochs (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--wandb_mode",
+        default="online",
+        type=str,
+        choices=["offline", "online"],
+        help="W&B experiment tracking default mode (default: %(default)s)",
     )
     parser.add_argument(
         "-nm",
@@ -255,7 +296,7 @@ def parse_args(argv):
         "--system",
         required=True,
         type=str,
-        choices=["cip_pool", "mcml", "lightning"],
+        choices=["cip_pool", "mcml", "lightning", "coder-iabg"],
         help="Which system are you running on? mcml cluster or cip pool (default: %(default)s)",
     )
     parser.add_argument(
@@ -335,14 +376,51 @@ def main(argv):
         reconstruction_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
         cropped_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
 
+        train_dataset = SSL4EOS12RGBDataset(
+            "/home/ra42tif/datasets/train_10gb_version/subset_train_big_dataset"
+            , is_train=True)
+        
+        test_dataset   = SSL4EOS12RGBDataset(
+        "/home/ra42tif/datasets/eval_10gb_version/S2RGB"
+       ,is_train=False)
+
     elif args.system == "mcml":
         reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
         cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+
+        train_dataset = SSL4EOS12RGBDataset(        
+        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
+        , is_train=True)
+
+        test_dataset   = SSL4EOS12RGBDataset(
+            "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB"
+            ,is_train=False)
+        
     
     elif args.system == "lightning":
         reconstruction_path = Path(f"/teamspace/studios/this_studio/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
         cropped_path = Path(f"/teamspace/studios/this_studio/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+
+        train_dataset = SSL4EOS12RGBDataset(
+            "/teamspace/studios/this_studio/train_split"
+            , is_train=True)
         
+        test_dataset   = SSL4EOS12RGBDataset(
+            "/teamspace/studios/this_studio/val_split"
+            ,is_train=False)
+
+    elif args.system == "coder-iabg":
+        reconstruction_path = Path(f"/home/ubuntu/images_experiments/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
+        cropped_path = Path(f"/home/ubuntu/images_experiments/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+
+        train_dataset = SSL4EOS12RGBDataset(
+            "/home/ubuntu/data/small_dataset_to_transfer/subset_train_big_dataset"
+            , is_train=True)
+        
+        test_dataset   = SSL4EOS12RGBDataset(
+            "/home/ubuntu/data/small_val_to_transfer/S2RGB"
+           ,is_train=False)
+
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
@@ -351,11 +429,13 @@ def main(argv):
     # init wandb
     print("here pre init of wandb")
     run = wandb.init(
+    mode=args.wandb_mode,
+    dir=f"wandb/{args.run_name}",
     # Set the wandb entity where your project will be logged (generally your team name).
     entity="anasnamouchi",
     # Set the wandb project where this run will be logged.
     project="Thesis",
-    name=args.run_name,
+    name= args.run_name,
     # use tags too
     tags=args.tags,
 
@@ -365,41 +445,21 @@ def main(argv):
         "architecture": "Hyperprior + Downsample_CNN",
         "dataset": "ssl4eo-small",
         "epochs": args.epochs,
-        # "name": args.run_name
     },
 )
     
     # [] 256 is hardcoded and needs to change
-    train_transforms = transforms.Compose(
-        [transforms.RandomCrop(256), transforms.ToTensor()]
-    )
+    # train_transforms = transforms.Compose(
+    #     [transforms.RandomCrop(256), transforms.ToTensor()]
+    # )
 
-    test_transforms = transforms.Compose(
-        [transforms.CenterCrop(256), transforms.ToTensor()]
-    )
+    # test_transforms = transforms.Compose(
+    #     [transforms.CenterCrop(256), transforms.ToTensor()]
+    # )
 
-    # train_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="train", transform=train_transforms)
-    # test_dataset = ImageFolder("/home/anas/datasets/ssl42eo-small-torun", split="test", transform=test_transforms)
-
-    # train_dataset = ImageFolder(args.dataset, split="train", transform=train_transforms)
-    # test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
-
-    # print(args.dataset)
-    # [] edit below to start taking in path
-    train_dataset = SSL4EOS12RGBDataset(
-        
-        #"/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
-        # "/home/ra42tif/datasets/train_10gb_version/subset_train_big_dataset"
-        "/teamspace/studios/this_studio/train_split"
-    , is_train=True)
-    test_dataset   = SSL4EOS12RGBDataset(
-        #"/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/data/ssl4eo-s12/val/S2RGB",
-        # "/home/ra42tif/datasets/eval_10gb_version/S2RGB",
-       "/teamspace/studios/this_studio/val_split"
-       ,is_train=False)
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
-    print(device)
+    print(f"device: {device}")
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -417,19 +477,13 @@ def main(argv):
         pin_memory=(device == "cuda"),
     )
     
-    # LOAD EMBEDDING MODEL 
-    # embedding_model_id = "MVRL/satmaepp_ViT-L_pretrain_fmow_rgb"
-    # embedding_model = SatMAE.from_pretrained(embedding_model_id).to(device).eval()
-
-    embedding_model = LowResMask()
     
     if args.model=="basic-hyperprior":
         net = models_dict[args.model](args.N, args.M)
     else:
         net = models_dict[args.model](args.N, args.M, args.K, embedding_type="downsample_cnn")
 
-    # net = ScaleHyperpriorCrossAttention(30, 24, 30, embedding_model=embedding_model, embedding_type="downsample_cnn")
-    # net = ScaleHyperpriorBahdanau(30, 24, 30, embedding_type="downsample_cnn")
+
     net = net.to(device)
 
     print(f"Model initilaized is {args.model} with {args.N,args.M,args.K}")
@@ -452,6 +506,8 @@ def main(argv):
         lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
     best_loss = float("inf")
+
+
     for epoch in range(last_epoch, args.epochs):
 
         print(f"Learning rate: {optimizer.param_groups[0]['lr']}")
@@ -467,6 +523,7 @@ def main(argv):
             lr_scheduler=lr_scheduler
         )
 
+        losses = test_epoch(epoch, test_dataloader, net, criterion)     
         # perform evaluation only every 3 epochs
         if epoch%3==0:
                 
