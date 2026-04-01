@@ -537,19 +537,24 @@ def main(argv):
             is_best = losses["Loss_ma"] < best_loss
             best_loss = min(losses["Loss_ma"], best_loss)
 
-            run.log({
-                # [] just commeneted for now, need to find a way for tracking the scheduler properly
-                #"lr_scheduler": lr_scheduler,
+            # handeling whether we are working with bahdanau or vanilla model 
+
+            log_dict = {
                 "eval/Loss_ma" : losses["Loss_ma"], 
                 "eval/MSE_loss_ma" : losses["MSE_loss_ma"], 
                 "eval/Bpp_loss_ma" : losses["Bpp_loss_ma"],
                 "eval/Aux_loss_ma" : losses["Aux_loss_ma"], 
                 "eval/PSNR":        losses["PSNR_ma"],
                 "eval/SSIM":        losses["SSIM_ma"],
-                # "eval/LPIPS":       losses["LPIPS_ma"],
-
-                }
-            )
+                "eval/Y Entropy":    losses["Y Entropy"],
+                "eval/Z Entropy":    losses["Z Entropy"],
+            }
+            
+            if "Y_G Entropy" in losses:
+                log_dict["eval/Y_G Entropy"] = losses["Y_G Entropy"]
+            
+            run.log(log_dict)
+            
 
         if args.save:
         # trying to save only if there is an improvement, if there are problems with this go back to older version
