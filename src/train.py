@@ -434,7 +434,7 @@ def main(argv):
     # dir=f"wandb/{args.run_name}",
     # Set the wandb entity where your project will be logged (generally your team name).
     entity="anasnamouchi",
-    notes="Ran using 20gb subset of dataset, for 20 epochs",
+    notes=f"Ran using 20gb subset of dataset, for 20 epochs, with patch size of {args.patch_size}, and lambda of {args.lmbda}. This is a run for the {args.model} architecture with N={args.N}, M={args.M}, K={args.K}. The tags for this run are {args.tags}",
     # Set the wandb project where this run will be logged.
     project="Thesis",
     name= args.run_name,
@@ -525,7 +525,6 @@ def main(argv):
             lr_scheduler=lr_scheduler
         )
 
-        losses = test_epoch(epoch, test_dataloader, net, criterion)     
         # perform evaluation only every 3 epochs
         if epoch%3==0:
                 
@@ -549,7 +548,7 @@ def main(argv):
                 "eval/Y Entropy":    losses["Y Entropy"],
                 "eval/Z Entropy":    losses["Z Entropy"],
             }
-            
+
             if "Y_G Entropy" in losses:
                 log_dict["eval/Y_G Entropy"] = losses["Y_G Entropy"]
             
