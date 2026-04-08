@@ -267,7 +267,7 @@ def parse_args(argv):
         help="Model architecture (default: %(default)s)",
     )
     parser.add_argument(
-        "-d", "--dataset", type=str,  help="Training dataset" # required=True,
+        "-d", "--dataset", type=str,  help="Training dataset", required=True
     )
     parser.add_argument(
         "-e",
@@ -385,12 +385,13 @@ def main(argv):
        ,is_train=False)
 
     elif args.system == "mcml":
-        reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
-        cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+        reconstruction_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.run_name}_{args.N}_{args.M}_{args.K}/reconstructed/")
+        cropped_path = Path(f"/dss/dsshome1/0E/ra42tif2/thesis_docs/images/{args.run_name}_{args.N}_{args.M}_{args.K}/cropped/")
 
-        train_dataset = SSL4EOS12RGBDataset(        
+        train_dataset = SSL4EOS12RGBDataset(     
+            args.dataset   
         # "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset"
-        "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/20gb_subset_ssl4eo"
+        # "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/20gb_subset_ssl4eo"
         , is_train=True)
 
         test_dataset   = SSL4EOS12RGBDataset(
@@ -569,8 +570,8 @@ def main(argv):
                         "lr_scheduler": lr_scheduler.state_dict(),
                     },
                     is_best,
-		filename=f"checkpoint_{args.model}_{args.N}_{args.M}_{args.K}.pth.tar",
-		copy_name= f"checkpoint_best_loss_{args.model}_{args.N}_{args.M}_{args.K}.pth.tar"
+		filename=f"checkpoint_{args.run_name}_{args.N}_{args.M}_{args.K}.pth.tar",
+		copy_name= f"checkpoint_best_loss_{args.run_name}_{args.N}_{args.M}_{args.K}.pth.tar"
                 )
         
         # save example images

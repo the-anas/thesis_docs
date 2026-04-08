@@ -7,4 +7,4 @@
 #SBATCH --output=basic_small.out
 #SBATCH --job-name=small_vanilla
 echo "Running test script on host $(hostname)"
-uv run /dss/dsshome1/0E/ra42tif2/thesis_docs/src/train.py -d "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/subset_train_big_dataset" -nm vanilla_small_cluster --cuda --save --seed 1234 -N 128 -M 192 -K 128 -m basic-hyperprior --system mcml --tags basic_hyperprior small
+uv run /dss/dsshome1/0E/ra42tif2/thesis_docs/src/train.py -d "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/20gb_subset_ssl4eo" -nm vanilla_small_cluster --cuda --save --seed 1234 -N 128 -M 192 -K 128 -m basic-hyperprior --system mcml --tags basic_hyperprior small 20gb_subset_ssl4eo
