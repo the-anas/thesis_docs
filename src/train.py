@@ -463,6 +463,7 @@ def main(argv):
 
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
     print(f"device: {device}")
+    print(f"lambda: {args.lmbda}")
 
     train_dataloader = DataLoader(
         train_dataset,
