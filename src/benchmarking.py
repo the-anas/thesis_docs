@@ -60,6 +60,8 @@ torch.set_num_threads(1)
 
 import re
 
+from new_utils import load_image
+
 # from torchvision.datasets.folder
 IMG_EXTENSIONS = (
     ".jpg",
@@ -99,10 +101,6 @@ def compute_metrics(
     return metrics
 
 
-def read_image(filepath: str) -> torch.Tensor:
-    assert filepath.is_file()
-    img = Image.open(filepath).convert("RGB")
-    return transforms.ToTensor()(img)
 
 
 @torch.no_grad()
@@ -232,7 +230,7 @@ def eval_model(
     device = next(model.parameters()).device
     metrics = defaultdict(float)
     for filepath in filepaths:
-        x = read_image(filepath).to(device)
+        x = load_image(filepath).to(device)
         if not entropy_estimation:
             if args["half"]:
                 model = model.half()

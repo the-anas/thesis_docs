@@ -6,7 +6,8 @@ import torch.nn as nn
 from compressai.models.utils import conv
 from compressai.layers import GDN
 from PIL import Image
-
+from torchvision import transforms
+from pathlib import Path
 
 # function to patch within model 
 def patchify(images: torch.Tensor, patch_size: int = 16):
@@ -190,7 +191,7 @@ class PatchEmbedCNN(nn.Module):
 # METRICS
 # ─────────────────────────────────────────────
 
-def patch_entropy(patch: torch.Tensor, num_bins: int = 256) -> float:
+def patch_entropy(patch: torch.Tensor, num_bins: int = 64) -> float:
     vals = patch.flatten().float()
     if vals.max() > 1.0:
         vals = vals / 255.0
@@ -259,3 +260,17 @@ def kl_divergence(patch_a: torch.Tensor, patch_b: torch.Tensor, num_bins: int = 
 
 def average_entropy(likelihood):
     return (-torch.log2(likelihood + 1e-9)).mean() 
+
+
+def load_image(path: str, image_size: int = 256) -> torch.Tensor:
+    """
+    Load an image and return a (1, C, H, W) tensor, normalized to [0, 1].
+    Resizes to image_size x image_size so patchify divides evenly.
+    """
+    transform = transforms.Compose([
+        transforms.Resize((image_size, image_size)),
+        transforms.ToTensor(),   # converts to (C, H, W) and normalizes to [0, 1]
+    ])
+    image = Image.open(path).convert("RGB")
+    tensor = transform(image)        # (C, H, W)
+    return tensor.unsqueeze(0)       # type: ignore # (1, C, H, W)  ← batch dim for patchify

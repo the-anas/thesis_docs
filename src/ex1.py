@@ -8,19 +8,7 @@ from new_utils import patchify, patch_entropy, cosine_similarity, mutual_informa
 import pickle 
 import json
 
-def load_image(path: str, image_size: int = 256) -> torch.Tensor:
-    """
-    Load an image and return a (1, C, H, W) tensor, normalized to [0, 1].
-    Resizes to image_size x image_size so patchify divides evenly.
-    """
-    transform = transforms.Compose([
-        transforms.Resize((image_size, image_size)),
-        transforms.ToTensor(),   # converts to (C, H, W) and normalizes to [0, 1]
-    ])
-    image = Image.open(path).convert("RGB")
-    tensor = transform(image)        # (C, H, W)
-    return tensor.unsqueeze(0)       # (1, C, H, W)  ← batch dim for patchify
-
+from new_utils import load_image
 
 def run_pipeline(folder_path: str, patch_size: int = 32, image_size: int = 224):
     """
@@ -115,7 +103,7 @@ def run_pipeline(folder_path: str, patch_size: int = 32, image_size: int = 224):
 
 if __name__ == "__main__":
     results = run_pipeline(
-        folder_path="/home/anas/datasets/exp1_photos",
+        folder_path="/home/anas/datasets/exp1",
         patch_size=32,
         image_size=224
     )
@@ -134,5 +122,5 @@ if __name__ == "__main__":
         print(type(results))
 
 
-    with open('results.json', 'w') as fp:
+    with open('results_total.json', 'w') as fp:
         json.dump(results, fp)
