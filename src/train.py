@@ -37,35 +37,67 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim_
 
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 from loader import models_dict
-
+from PIL import Image
+from torchvision import transforms
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
 
 # save example images from test suite every 10 epochs
-def images_every_10_epochs(test_dataset, model,epoch, reconstruction_path, cropped_path ): 
-    device = next(model.parameters()).device   
+# def images_every_10_epochs(test_dataset, model,epoch, reconstruction_path, cropped_path ): 
+    # device = next(model.parameters()).device   
+    # model.eval()
+    # model.update(force=True)
+
+    # random_indices = random.sample(range(len(test_dataset)), 10)
+    # os.makedirs(Path(reconstruction_path/f"epoch_{epoch}"), exist_ok=True) 
+    # os.makedirs(Path(cropped_path/f"epoch_{epoch}"), exist_ok=True) 
+
+    # # Create a subset and a new dataloader
+    # subset = Subset(test_dataset, random_indices)
+    # random_loader = DataLoader(subset, batch_size=10, shuffle=False)
+    # for ind, tens in enumerate(random_loader):
+    #     counter=0
+    #     for sec_ind, image in enumerate(tens):
+    #         image = image.to(device)            
+    #         save_tensor_as_image(image, Path(cropped_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
+    #         tensor = image.unsqueeze(0)
+    #         out = model.compress(tensor)
+    #         x_hat = model.decompress(out["strings"], out["shape"])
+    #         save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
+    #         counter+=1
+    
+    # model.train()
+
+
+def images_every_10_epochs(image_dir, model, epoch, reconstruction_path, cropped_path):
+
+    device = next(model.parameters()).device
     model.eval()
     model.update(force=True)
 
-    random_indices = random.sample(range(len(test_dataset)), 10)
-    os.makedirs(Path(reconstruction_path/f"epoch_{epoch}"), exist_ok=True) 
-    os.makedirs(Path(cropped_path/f"epoch_{epoch}"), exist_ok=True) 
+    all_images = sorted(Path(image_dir).glob("*.png"))
+    assert len(all_images) > 0, f"No .png files found in {image_dir}"
 
-    # Create a subset and a new dataloader
-    subset = Subset(test_dataset, random_indices)
-    random_loader = DataLoader(subset, batch_size=10, shuffle=False)
-    for ind, tens in enumerate(random_loader):
-        counter=0
-        for sec_ind, image in enumerate(tens):
-            image = image.to(device)            
-            save_tensor_as_image(image, Path(cropped_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
-            tensor = image.unsqueeze(0)
-            out = model.compress(tensor)
-            x_hat = model.decompress(out["strings"], out["shape"])
-            save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path / f"epoch_{epoch}"/f"image{sec_ind}_epoch{epoch}.png"))
-            counter+=1
-    
+    selected = random.sample(all_images, min(10, len(all_images)))
+
+    os.makedirs(Path(reconstruction_path) / f"epoch_{epoch}", exist_ok=True)
+    os.makedirs(Path(cropped_path) / f"epoch_{epoch}", exist_ok=True)
+
+    transform = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+    ])
+
+    for sec_ind, img_path in enumerate(selected):
+        image = transform(Image.open(img_path).convert("RGB")).to(device)  # (C, H, W)
+        save_tensor_as_image(image, Path(cropped_path) / f"epoch_{epoch}" / f"image{sec_ind}_epoch{epoch}.png")
+
+        tensor = image.unsqueeze(0)
+        out = model.compress(tensor)
+        x_hat = model.decompress(out["strings"], out["shape"])
+        save_tensor_as_image(x_hat["x_hat"].squeeze(0), Path(reconstruction_path) / f"epoch_{epoch}" / f"image{sec_ind}_epoch{epoch}.png")
+
     model.train()
 
 
@@ -423,7 +455,8 @@ def main(argv):
             "/home/ubuntu/data/small_val_to_transfer/S2RGB"
            ,is_train=False)
 
-
+    reconstruction_dir = "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/reconstruction_dir"
+    
     if args.seed is not None:
         torch.manual_seed(args.seed)
         random.seed(args.seed)
@@ -577,7 +610,7 @@ def main(argv):
         
         # save example images
         if epoch %5 == 0:
-            images_every_10_epochs(test_dataset,net,epoch, reconstruction_path, cropped_path)
+            images_every_10_epochs(reconstruction_dir,net,epoch, reconstruction_path, cropped_path)
         
         
 
