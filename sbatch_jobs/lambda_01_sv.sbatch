@@ -3,7 +3,7 @@
 #SBATCH --qos=mcml
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:8
-#SBATCH -t 20:10:00
+#SBATCH -t 10:10:00
 #SBATCH --output=l01_s_vanilla.out
 #SBATCH --job-name=lambda_01_small_vanilla
 echo "Running test script on host $(hostname)"

@@ -3,7 +3,7 @@
 #SBATCH --qos=mcml
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:8
-#SBATCH -t 20:10:00
+#SBATCH -t 10:10:00
 #SBATCH --output=l_3_s_bahdanau.out   
 #SBATCH --job-name=l_3_small_bahdanau
 echo "Running test script on host $(hostname)"
