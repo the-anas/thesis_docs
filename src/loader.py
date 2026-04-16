@@ -79,11 +79,11 @@ class SSL4EOS12RGBDataset(Dataset):
 
 
 # ---- datasets ----
-train_dataset = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/train/', is_train=True)
-val_dataset   = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/val/',   is_train=False)
+# train_dataset = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/train/', is_train=True)
+# val_dataset   = SSL4EOS12RGBDataset('/home/anas/thesis/checkpoints/val/',   is_train=False)
 
-print(f"Train images: {len(train_dataset):,}")
-print(f"Val images:   {len(val_dataset):,}")
+# print(f"Train images: {len(train_dataset):,}")
+# print(f"Val images:   {len(val_dataset):,}")
 
 # # ---- loaders ----
 # train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True,  num_workers=4, pin_memory=True)
