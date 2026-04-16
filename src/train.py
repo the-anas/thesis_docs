@@ -15,13 +15,15 @@ from compressai.losses import RateDistortionLoss
 from compressai.optimizers import net_aux_optimizer
 from compressai.zoo import image_models
 
-from models import ScaleHyperpriorCrossAttention, ScaleHyperpriorBahdanau
+from models import ScaleHyperpriorCrossAttention, ScaleHyperpriorBahdanau, ScaleHyperpriorBahdanau_v2
 
 from rshf.satmae import SatMAE
 
 from new_utils import LowResMask, save_tensor_as_image, average_entropy
 
 import wandb
+import torch.nn.functional as F
+
 # THIS AND NEW_UTILS WERE EDITED
 
 

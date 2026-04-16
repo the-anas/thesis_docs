@@ -274,3 +274,22 @@ def load_image(path: str, image_size: int = 256) -> torch.Tensor:
     image = Image.open(path).convert("RGB")
     tensor = transform(image)        # (C, H, W)
     return tensor.unsqueeze(0)       # type: ignore # (1, C, H, W)  ← batch dim for patchify
+
+
+class DownsampleCNN_v2(nn.Module):
+    """
+    Shallow downsampler that preserves 4x4 spatial output for L_k=16 tokens.
+    For a 16x16 patch: 2 stride-2 convs -> 4x4.
+    """
+    def __init__(self, N, K):
+        super().__init__()
+        self.conv_global_y = nn.Sequential(
+            conv(3, N),   # 16 -> 8
+            GDN(N),
+            conv(N, K),   # 8  -> 4
+        )
+
+    def forward(self, x):
+        return self.conv_global_y(x)
+    
+    

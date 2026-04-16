@@ -15,7 +15,6 @@ Usage:
 Supported archs:
     bmshj2018-hyperprior
     bmshj2018-hyperprior-bahdanau
-    bmshj2018-hyperprior-crossattention
 """
 
 import argparse
@@ -57,7 +56,7 @@ def load_checkpoint(arch: str, checkpoint_path: str) -> torch.nn.Module:
                 "Expected format: ..._N_M_K.pth.tar or ..._N_M.pth.tar"
             )
 
-    if arch == "bmshj2018-hyperprior":
+    if arch == "basic-hyperprior":
         net = models_dict[arch](N, M)
     else:
         net = models_dict[arch](N, M, K, embedding_type="downsample_cnn")

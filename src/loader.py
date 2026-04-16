@@ -7,10 +7,18 @@ import zarr.storage
 import xarray as xr
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
-from models import ScaleHyperprior, ScaleHyperpriorBahdanau
+# from models import ScaleHyperprior, ScaleHyperpriorBahdanau
+from models import ScaleHyperprior, ScaleHyperpriorBahdanau, ScaleHyperpriorBahdanau_v2
 
-models_dict = {"basic-hyperprior": ScaleHyperprior, 
-               "bahdanau-hyperprior":ScaleHyperpriorBahdanau}
+# models_dict = {"basic-hyperprior": ScaleHyperprior, 
+#                "bahdanau-hyperprior":ScaleHyperpriorBahdanau}
+
+
+models_dict = {
+    "basic-hyperprior":      ScaleHyperprior,
+    "bahdanau-hyperprior":   ScaleHyperpriorBahdanau,    # old — loads existing checkpoints
+    "bahdanau-hyperprior-v2": ScaleHyperpriorBahdanau_v2, # new — train fresh
+}
 
 
 class SSL4EOS12RGBDataset(Dataset):

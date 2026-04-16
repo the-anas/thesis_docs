@@ -236,6 +236,11 @@ class BahdanauCrossAttention(nn.Module):
         energy  = self.v(torch.tanh(q_proj + k_proj)).squeeze(-1)  # (B, L_q, L_k)
         alpha   = F.softmax(energy, dim=-1)                         # (B, L_q, L_k)
 
+        # EDITED POST TRAINING FOR DEBUGGING
+        # energy  = self.v(torch.tanh(q_proj + k_proj)).squeeze(-1)
+        # alpha   = F.softmax(energy * 100000000000.0, dim=-1)  # sharpen with temperature
+
+
         # --- weighted sum of values ---
         v_proj  = self.W_v(kv)                                      # (B, L_k, q_dim)
         context = torch.bmm(alpha, v_proj)                          # (B, L_q, q_dim)
@@ -351,6 +356,94 @@ class Decoder_BahdanauAttention(nn.Module):
 
         # optional FFN block (transformer-style)
         # fused = self.ln_ffn(fused + self.ffn(fused))
+
+        y_fused = fused.transpose(1, 2).reshape(BP, M, h, w)
+        return self.decode(y_fused)
+    
+
+class BahdanauCrossAttention_v2(nn.Module):
+    def __init__(self, q_dim: int, kv_dim: int, attn_dim: int | None = None):
+        super().__init__()
+        d = attn_dim if attn_dim is not None else q_dim
+
+        self.W_q      = nn.Linear(q_dim,  d, bias=False)
+        self.W_k      = nn.Linear(kv_dim, d, bias=False)
+        self.v        = nn.Linear(d, 1,       bias=False)
+        self.W_v      = nn.Linear(kv_dim, q_dim, bias=False)
+        self.out_proj = nn.Linear(q_dim, q_dim)
+        self._scale   = d ** 0.5
+
+        nn.init.xavier_uniform_(self.v.weight)
+
+    def forward(self, q, kv):
+        q_proj = self.W_q(q).unsqueeze(2)
+        k_proj = self.W_k(kv).unsqueeze(1)
+        energy = self.v(torch.tanh(q_proj + k_proj)).squeeze(-1) * self._scale
+        alpha  = F.softmax(energy, dim=-1)
+        v_proj  = self.W_v(kv)
+        context = torch.bmm(alpha, v_proj)
+        return self.out_proj(context), alpha
+
+
+class Encoder_BahdanauAttention_v2(nn.Module):
+    def __init__(self, N: int, M: int, K: int, attn_dim: int | None = None, **kwargs):
+        super().__init__(**kwargs)
+
+        self.local = nn.Sequential(
+            conv(3, N),
+            GDN(N),
+            conv(N, N),
+            GDN(N),
+            conv(N, M, stride=1, kernel_size=3),
+        )
+
+        self.attn   = BahdanauCrossAttention_v2(q_dim=M, kv_dim=K, attn_dim=attn_dim)
+        self.ln_q   = nn.LayerNorm(M)
+        self.ln_kv  = nn.LayerNorm(K)
+        self.ln_out = nn.LayerNorm(M)
+
+    def forward(self, x_p, y_g):
+        B, P, C, Hp, Wp = x_p.shape
+        x_flat = x_p.reshape(B * P, C, Hp, Wp)
+
+        y_local  = self.local(x_flat)
+        BP, M, h, w = y_local.shape
+
+        q_tokens = y_local.flatten(2).transpose(1, 2)           # (BP, h*w, M)
+        kv       = y_g.flatten(2).transpose(1, 2).contiguous()  # (BP, L_k, K)
+
+        context, _ = self.attn(self.ln_q(q_tokens), self.ln_kv(kv))
+        fused      = self.ln_out(q_tokens + context)             # residual on original
+
+        return fused.transpose(1, 2).reshape(BP, M, h, w)
+
+
+class Decoder_BahdanauAttention_v2(nn.Module):
+    def __init__(self, N: int, M: int, K: int, attn_dim: int | None = None):
+        super().__init__()
+        self.M = M
+
+        self.attn   = BahdanauCrossAttention_v2(q_dim=M, kv_dim=K, attn_dim=attn_dim)
+        self.ln_q   = nn.LayerNorm(M)
+        self.ln_kv  = nn.LayerNorm(K)
+        self.ln_out = nn.LayerNorm(M)
+
+        self.decode = nn.Sequential(
+            deconv(M, N),
+            GDN(N, inverse=True),
+            deconv(N, N),
+            GDN(N, inverse=True),
+            deconv(N, 3, stride=1, kernel_size=3),
+        )
+
+    def forward(self, y_hat, y_g):
+        BP, M, h, w = y_hat.shape
+
+        q_tokens = y_hat.flatten(2).transpose(1, 2)
+        kv       = y_g.flatten(2).transpose(1, 2).contiguous()
+
+        context, _ = self.attn(self.ln_q(q_tokens), self.ln_kv(kv))
+        fused      = self.ln_out(q_tokens + context)
 
         y_fused = fused.transpose(1, 2).reshape(BP, M, h, w)
         return self.decode(y_fused)

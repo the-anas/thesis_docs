@@ -48,8 +48,17 @@ from compressai.models.base import (
 from compressai.models.utils import conv, deconv
 
 
-from new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
-from new_transforms import Encoder_CrossAttention, Decoder_CrossAttention, Encoder_BahdanauAttention, Decoder_BahdanauAttention
+# from new_utils import patchify, embed_image, unpatchify, DownsampleCNN, LowResMask
+# from new_transforms import Encoder_CrossAttention, Decoder_CrossAttention, Encoder_BahdanauAttention, Decoder_BahdanauAttention
+# update imports at the top
+from new_utils import (patchify, embed_image, unpatchify,
+                       DownsampleCNN, LowResMask, DownsampleCNN_v2)
+
+from new_transforms import (Encoder_CrossAttention, Decoder_CrossAttention,
+                            Encoder_BahdanauAttention, Decoder_BahdanauAttention,
+                            Encoder_BahdanauAttention_v2, Decoder_BahdanauAttention_v2)
+
+
 
 import gzip
 import io
@@ -581,3 +590,78 @@ class ScaleHyperprior(CompressionModel):
         y_hat = self.gaussian_conditional.decompress(strings[0], indexes, z_hat.dtype)
         x_hat = self.g_s(y_hat).clamp_(0, 1)
         return {"x_hat": x_hat}
+
+
+@register_model("bmshj2018-hyperprior-bahdanau-v2")
+class ScaleHyperpriorBahdanau_v2(CompressionModel):
+    """
+    Fixed version of ScaleHyperpriorBahdanau:
+    - DownsampleCNN_v2: preserves 4x4 spatial output (L_k=16)
+    - BahdanauCrossAttention_v2: proper v init + score scaling
+    - Residual applied to pre-norm tokens
+    - Diversity loss supported via _embed_patches exposure
+    """
+    def __init__(self, N, M, K, embedding_model=None, embedding_type="downsample_cnn",
+                 patch_size: int = 16, **kwargs):
+        super().__init__(**kwargs)
+
+        if embedding_type == "downsample_cnn":
+            embedding_model = DownsampleCNN_v2(N, K)
+
+        self.entropy_bottleneck   = EntropyBottleneck(N)
+        self.gaussian_conditional = GaussianConditional(None)
+        self.y_ent_bot            = EntropyBottleneck(K)
+
+        self.g_a = Encoder_BahdanauAttention_v2(N, M, K)
+        self.g_s = Decoder_BahdanauAttention_v2(N, M, K)
+
+        self.embedding_model = embedding_model
+        self.patch_size = patch_size
+        self.N = int(N)
+        self.M = int(M)
+        self.K = int(K)
+
+        self.h_a = nn.Sequential(
+            conv(M, N, stride=1, kernel_size=3),
+            nn.ReLU(inplace=True),
+            conv(N, N),
+            nn.ReLU(inplace=True),
+            conv(N, N),
+        )
+
+        self.h_s = nn.Sequential(
+            deconv(N, N),
+            nn.ReLU(inplace=True),
+            deconv(N, N),
+            nn.ReLU(inplace=True),
+            conv(N, M, stride=1, kernel_size=3),
+            nn.ReLU(inplace=True),
+        )
+
+    def _embed_patches(self, x_flat: torch.Tensor) -> torch.Tensor:
+        return self.embedding_model(x_flat)
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        x_p = patchify(x, patch_size=self.patch_size)
+        B, P, C, Hp, Wp = x_p.shape
+        Gh, Gw = H // Hp, W // Wp
+
+        x_flat = x_p.reshape(B * P, C, Hp, Wp)
+        y_g    = self._embed_patches(x_flat)
+
+        y                         = self.g_a(x_p, y_g)
+        z                         = self.h_a(torch.abs(y))
+        z_hat, z_likelihoods      = self.entropy_bottleneck(z)
+        scales_hat                = self.h_s(z_hat)
+        y_hat, y_likelihoods      = self.gaussian_conditional(y, scales_hat)
+        y_g_hat, y_g_likelihoods  = self.y_ent_bot(y_g)
+
+        x_hat_flat = self.g_s(y_hat, y_g_hat)
+        x_hat_p    = x_hat_flat.reshape(B, P, 3, x_hat_flat.shape[-2], x_hat_flat.shape[-1])
+        x_hat      = unpatchify(x_hat_p, (Gh, Gw))
+
+        return {
+            "x_hat": x_hat,
+            "likelihoods": {"y": y_likelihoods, "z": z_likelihoods, "y_g": y_g_likelihoods},
+        }

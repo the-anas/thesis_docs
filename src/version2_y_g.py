@@ -42,6 +42,7 @@ import random
 import json
 from pathlib import Path
 from datetime import datetime
+from xml.parsers.expat import model
 
 import numpy as np
 import torch
@@ -52,6 +53,8 @@ from loader import SSL4EOS12RGBDataset
 from new_utils import patchify, unpatchify, save_tensor_as_image, load_image
 
 import re
+import inspect
+import torch.nn.functional as F
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -200,7 +203,7 @@ def probe_zero_yg(model, x: torch.Tensor) -> dict:
     y_g      = model._embed_patches(x_flat)
     y_g_zero = torch.zeros_like(y_g)
 
-    y        = model.g_a(x_p, y_g)
+    y        = model.g_a(x_p, y_g_zero)
     z        = model.h_a(torch.abs(y))
     z_hat, _ = model.entropy_bottleneck(z)
     scales   = model.h_s(z_hat)
@@ -232,7 +235,7 @@ def probe_noisy_yg(model, x: torch.Tensor, sigma: float) -> dict:
     y_g       = model._embed_patches(x_flat)
     y_g_noisy = y_g + sigma * torch.randn_like(y_g)
 
-    y        = model.g_a(x_p, y_g)
+    y        = model.g_a(x_p, y_g_noisy)
     z        = model.h_a(y.abs())
     z_hat, _ = model.entropy_bottleneck(z)
     scales   = model.h_s(z_hat)
@@ -245,6 +248,8 @@ def probe_noisy_yg(model, x: torch.Tensor, sigma: float) -> dict:
 
     compute_bpp_result = compute_bpp(model.forward(x), num_pixels=H*W)
 
+
+
     return {"sigma": sigma, "psnr_noisy_yg": compute_psnr(x, x_hat), "x_hat": x_hat, "bpp": compute_bpp_result}
 
 
@@ -253,7 +258,6 @@ def probe_mixed_yg(model, x: torch.Tensor, x_other: torch.Tensor) -> dict:
     """
     Experiment 5 – decode x using y_g from x_other.
     Quantifies how much image-specific semantic content is baked into y_g.
-    Also runs a baseline decode with x's own y_g for direct comparison.
     """
     model.eval()
     B, C, H, W = x.shape
@@ -265,44 +269,166 @@ def probe_mixed_yg(model, x: torch.Tensor, x_other: torch.Tensor) -> dict:
     x_flat       = x_p.reshape(B * P, C, Hp, Wp)
     x_other_flat = x_other_p.reshape(B * P, C, Hp, Wp)
 
-    y_g       = model._embed_patches(x_flat)
+
     y_g_other = model._embed_patches(x_other_flat)
 
-    # Encode x normally
-    y        = model.g_a(x_p, y_g)
-    z        = model.h_a(y.abs())
+    y_g_own   = model._embed_patches(x_flat)
+    y_g_other = model._embed_patches(x_other_flat)
+
+    print("y_g cosine sim:", F.cosine_similarity(y_g_own.flatten(), y_g_other.flatten(), dim=0).item())
+    print("y_g L2 dist:", (y_g_own - y_g_other).norm().item())
+    y_own   = model.g_a(x_p, y_g_own)
+    y_other = model.g_a(x_p, y_g_other)
+    print("g_a output diff:", (y_own - y_other).abs().mean().item())
+
+
+    y        = model.g_a(x_p, y_g_other)
+    z        = model.h_a(torch.abs(y))
     z_hat, _ = model.entropy_bottleneck(z)
     scales   = model.h_s(z_hat)
     y_hat, _ = model.gaussian_conditional(y, scales)
+    y_g_hat_other, _ = model.y_ent_bot(y_g_other)
 
-    # Decode with foreign y_g
-    y_g_other_hat, _ = model.y_ent_bot(y_g_other)
-    x_hat_flat  = model.g_s(y_hat, y_g_other_hat).clamp(0, 1)
-    x_hat_p     = x_hat_flat.reshape(B, P, 3, x_hat_flat.shape[-2], x_hat_flat.shape[-1])
-    x_hat_mixed = unpatchify(x_hat_p, (Gh, Gw))
+    x_hat_flat = model.g_s(y_hat, y_g_hat_other).clamp(0, 1)
+    x_hat_p    = x_hat_flat.reshape(B, P, 3, x_hat_flat.shape[-2], x_hat_flat.shape[-1])
+    x_hat      = unpatchify(x_hat_p, (Gh, Gw))
 
-    # Baseline: decode with own y_g
-    y_g_hat, _ = model.y_ent_bot(y_g)
-    x_hat_base_flat = model.g_s(y_hat, y_g_hat).clamp(0, 1)
-    x_hat_base_p    = x_hat_base_flat.reshape(B, P, 3, x_hat_flat.shape[-2], x_hat_flat.shape[-1])
-    x_hat_base      = unpatchify(x_hat_base_p, (Gh, Gw))
+    psnr_mixed = compute_psnr(x, x_hat)
+    bpp        = compute_bpp(model.forward(x), num_pixels=H * W)
+   
+    # with torch.no_grad():
+    #     B, C, H, W = x.shape
+    #     x_p       = patchify(x,       patch_size=model.patch_size)
+    #     x_other_p = patchify(x_other, patch_size=model.patch_size)
+    #     _, P, _, Hp, Wp = x_p.shape
 
-    psnr_base  = compute_psnr(x, x_hat_base)
-    psnr_mixed = compute_psnr(x, x_hat_mixed)
+    #     x_flat       = x_p.reshape(B * P, C, Hp, Wp)
+    #     x_other_flat = x_other_p.reshape(B * P, C, Hp, Wp)
 
-    compute_bpp_result_x = compute_bpp(model.forward(x), num_pixels=H*W)
-    compute_bpp_result_other = compute_bpp(model.forward(x_other), num_pixels=H*W)
+    #     y_g_own   = model._embed_patches(x_flat)
+    #     y_g_other = model._embed_patches(x_other_flat)
+
+    #     # g_a output diff
+    #     y_own   = model.g_a(x_p, y_g_own)
+    #     y_other = model.g_a(x_p, y_g_other)
+    #     print("g_a output diff:", (y_own - y_other).abs().mean().item())
+
+    #     # Attention weight magnitudes
+    #     for name, param in model.named_parameters():
+    #         if any(k in name for k in ['W_q', 'W_k', 'W_v', 'v.weight']):
+    #             print(f"{name:50s}  abs_mean={param.abs().mean().item():.6f}")
+
+    # with torch.no_grad():
+    #     # Artificially scale the energy vector to sharpen attention
+    #     model.g_a.attn.v.weight.data *= 10
+    #     model.g_s.attn.v.weight.data *= 10
+
+    #     y_own   = model.g_a(x_p, y_g_own)
+    #     y_other = model.g_a(x_p, y_g_other)
+    #     print("g_a output diff after v scaling:", (y_own - y_other).abs().mean().item())
+
+    #     # Restore
+    #     model.g_a.attn.v.weight.data /= 10
+    #     model.g_s.attn.v.weight.data /= 10
+
+    with torch.no_grad():
+        B, C, H, W = x.shape
+        x_p       = patchify(x, patch_size=model.patch_size)
+        x_other_p = patchify(x_other, patch_size=model.patch_size)
+        _, P, _, Hp, Wp = x_p.shape
+        x_flat       = x_p.reshape(B * P, C, Hp, Wp)
+        x_other_flat = x_other_p.reshape(B * P, C, Hp, Wp)
+
+        y_g_own   = model._embed_patches(x_flat)
+        y_g_other = model._embed_patches(x_other_flat)
+
+        # Manually run encoder internals to compare q vs context magnitudes
+        x_local = model.g_a.local(x_flat)
+        BP, M, h, w = x_local.shape
+
+        q  = x_local.flatten(2).transpose(1, 2)           # (BP, h*w, M)
+        kv = y_g_own.flatten(2).transpose(1, 2).contiguous()
+
+        q_norm  = model.g_a.ln_q(q)
+        kv_norm = model.g_a.ln_kv(kv)
+
+        context, alpha = model.g_a.attn(q_norm, kv_norm)
+
+        print("q     abs_mean:", q_norm.abs().mean().item())
+        print("context abs_mean:", context.abs().mean().item())
+        print("alpha  std (how sharp):", alpha.std().item())
+        print("ratio context/q:", (context.abs().mean() / q_norm.abs().mean()).item())
+    
+
+    with torch.no_grad():
+        energy_raw = model.g_a.attn.v(
+            torch.tanh(
+                model.g_a.attn.W_q(q_norm).unsqueeze(2) +
+                model.g_a.attn.W_k(kv_norm).unsqueeze(1)
+            )
+        ).squeeze(-1)  # (BP, L_q, L_k)
+
+        print("energy min:", energy_raw.min().item())
+        print("energy max:", energy_raw.max().item())
+        print("energy std:", energy_raw.std().item())
+
+    print("energy * 1e11 sample:", (energy_raw * 1e11)[0, 0, :5])
+    print("alpha sample:", alpha[0, 0, :5])
+    print("alpha has nan:", torch.isnan(alpha).any().item())
+
+    for temp in [1.0, 10.0, 100.0, 1000.0]:
+        alpha_test = F.softmax(energy_raw * temp, dim=-1)
+        has_nan = torch.isnan(alpha_test).any().item()
+        std = alpha_test.std().item() if not has_nan else float('nan')
+        mx  = alpha_test.max().item() if not has_nan else float('nan')
+        print(f"temp={temp:6.0f}  alpha_std={std:.8f}  alpha_max={mx:.6f}  nan={has_nan}")
+
+    print("L_k:", kv_norm.shape[1])
+    
+    print(inspect.getsource(model.g_a.attn.forward))
+
 
     return {
-        "psnr_own_yg":     psnr_base,
         "psnr_foreign_yg": psnr_mixed,
-        "psnr_delta":      psnr_base - psnr_mixed,   # positive = y_g carries real info
-        "x_hat_mixed":     x_hat_mixed,
-        "x_hat_base":      x_hat_base,
-        "bpp":             compute_bpp_result_x,
-        "bpp_other":       compute_bpp_result_other
+        "x_hat_mixed":     x_hat,
+        "bpp":             bpp,
     }
 
+
+
+    # B, C, H, W = x.shape
+    # x_p       = patchify(x,       patch_size=model.patch_size)
+    # x_other_p = patchify(x_other, patch_size=model.patch_size)
+    # _, P, _, Hp, Wp = x_p.shape
+    # Gh, Gw = H // Hp, W // Wp
+
+    # x_flat       = x_p.reshape(B * P, C, Hp, Wp)
+    # x_other_flat = x_other_p.reshape(B * P, C, Hp, Wp)
+
+    # # Embed both
+    # y_g_other = model._embed_patches(x_other_flat)
+
+    # # Encode x with its own y_g
+    # y        = model.g_a(x_p, y_g_other)
+    # z        = model.h_a(y.abs())
+    # z_hat, _ = model.entropy_bottleneck(z)
+    # scales   = model.h_s(z_hat)
+    # y_hat, _ = model.gaussian_conditional(y, scales)
+
+    # # Decode with foreign y_g — mismatch should corrupt output
+    # y_g_other_hat, _ = model.y_ent_bot(y_g_other)
+    # x_hat_flat       = model.g_s(y_hat, y_g_other_hat).clamp(0, 1)
+    # x_hat_p          = x_hat_flat.reshape(B, P, 3, x_hat_flat.shape[-2], x_hat_flat.shape[-1])
+    # x_hat_mixed      = unpatchify(x_hat_p, (Gh, Gw))
+
+    # psnr_mixed = compute_psnr(x, x_hat_mixed)
+    # bpp        = compute_bpp(model.forward(x), num_pixels=H * W)
+
+    # return {
+    #     "psnr_foreign_yg": psnr_mixed,
+    #     "x_hat_mixed":     x_hat_mixed,
+    #     "bpp":             bpp,
+    # }
 
 # ===========================================================================
 # Workflow A — Experiments 2, 3, 5 on a single chosen image pair
@@ -327,35 +453,35 @@ def run_probe_workflow(model, image_path: str, other_image_path: str,
     # ---- Exp 2: zero y_g ------------------------------------------------
     print("\n[Exp 2] Zero y_g ...")
     res2 = probe_zero_yg(model, x)
-    save_tensor_as_image(res2["x_hat"], Path(results_dir) / f"K{K}_zero_yg.png")
+    save_tensor_as_image(res2["x_hat"][0], Path(results_dir) / f"K{K}_zero_yg.png")
     data["psnr_zero_yg"] = res2["psnr_zero_yg"]
     data["bpp_zero_yg"]  = res2["bpp"]
     print(f"  PSNR = {res2['psnr_zero_yg']:.4f} dB  →  K{K}_zero_yg.png")
 
     # ---- Exp 3: noisy y_g -----------------------------------------------
-    print("\n[Exp 3] Noisy y_g ...")
-    for sigma in NOISE_SIGMAS:
-        res3  = probe_noisy_yg(model, x, sigma=sigma)
-        fname = f"K{K}_noisy_yg_sigma_{str(sigma).replace('.', 'p')}.png"
-        save_tensor_as_image(res3["x_hat"], Path(results_dir) / fname)
-        key = f"psnr_noise_sigma_{sigma}"
-        data[key] = res3["psnr_noisy_yg"]
-        data[f"bpp_noise_sigma_{sigma}"] = res3["bpp"]
-        print(f"  sigma={sigma:<6}  PSNR = {res3['psnr_noisy_yg']:.4f} dB  →  {fname}")
+    # print("\n[Exp 3] Noisy y_g ...")
+    # for sigma in NOISE_SIGMAS:
+    #     res3  = probe_noisy_yg(model, x, sigma=sigma)
+    #     fname = f"K{K}_noisy_yg_sigma_{str(sigma).replace('.', 'p')}.png"
+    #     save_tensor_as_image(res3["x_hat"][0], Path(results_dir) / fname)
+    #     key = f"psnr_noise_sigma_{sigma}"
+    #     data[key] = res3["psnr_noisy_yg"]
+    #     data[f"bpp_noise_sigma_{sigma}"] = res3["bpp"]
+    #     print(f"  sigma={sigma:<6}  PSNR = {res3['psnr_noisy_yg']:.4f} dB  →  {fname}")
 
     # ---- Exp 5: cross-image mixing --------------------------------------
     print("\n[Exp 5] Cross-image mixing ...")
     res5 = probe_mixed_yg(model, x, x_other)
-    save_tensor_as_image(res5["x_hat_mixed"], Path(results_dir) / f"K{K}_mixed_yg.png")
-    save_tensor_as_image(res5["x_hat_base"],  Path(results_dir) / f"K{K}_base_yg.png")
-    data["psnr_own_yg"]     = res5["psnr_own_yg"]
+    save_tensor_as_image(res5["x_hat_mixed"][0], Path(results_dir) / f"K{K}_mixed_yg.png")
+    # save_tensor_as_image(res5["x_hat_base"][0],  Path(results_dir) / f"K{K}_base_yg.png")
+    # data["psnr_own_yg"]     = res5["psnr_own_yg"]
     data["psnr_foreign_yg"] = res5["psnr_foreign_yg"]
-    data["psnr_delta"]      = res5["psnr_delta"]
+    # data["psnr_delta"]      = res5["psnr_delta"]
     data["bpp_mixed_yg"]    = res5["bpp"]
-    data["bpp_base_yg"]     = res5["bpp_other"]
-    print(f"  PSNR (own y_g)     = {res5['psnr_own_yg']:.4f} dB  →  K{K}_base_yg.png")
-    print(f"  PSNR (foreign y_g) = {res5['psnr_foreign_yg']:.4f} dB  →  K{K}_mixed_yg.png")
-    print(f"  PSNR delta         = {res5['psnr_delta']:.4f} dB")
+    # data["bpp_base_yg"]     = res5["bpp_other"]
+    # print(f"  PSNR (own y_g)     = {res5['psnr_own_yg']:.4f} dB  →  K{K}_base_yg.png")
+    # print(f"  PSNR (foreign y_g) = {res5['psnr_foreign_yg']:.4f} dB  →  K{K}_mixed_yg.png")
+    # print(f"  PSNR delta         = {res5['psnr_delta']:.4f} dB")
 
     # ---- Save metrics ---------------------------------------------------
     out_path = Path(results_dir) / output_file
