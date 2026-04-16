@@ -411,11 +411,13 @@ def main(argv):
         cropped_path = Path(f"/home/ra42tif/images_experiments/images/{args.run_name}_{args.N}_{args.M}_{args.K}/cropped/")
 
         train_dataset = SSL4EOS12RGBDataset(
-            "/home/ra42tif/datasets/20gb_subset_ssl4eo/20gb_subset_ssl4eo"
+            # "/home/ra42tif/datasets/20gb_subset_ssl4eo/20gb_subset_ssl4eo"
+            "/home/ra42tif/datasets/zarr_test_train"
             , is_train=True)
         
         test_dataset   = SSL4EOS12RGBDataset(
-        "/home/ra42tif/datasets/eval_10gb_version/S2RGB"
+            "/home/ra42tif/datasets/zarr_test_eval"
+        # "/home/ra42tif/datasets/eval_10gb_version/S2RGB"
        ,is_train=False)
 
     elif args.system == "mcml":
