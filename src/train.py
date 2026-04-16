@@ -405,11 +405,14 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
+    reconstruction_dir = "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/reconstruction_dir"
+
 
     if args.system == "cip_pool":    
         reconstruction_path = Path(f"/home/ra42tif/images_experiments/images/{args.run_name}_{args.N}_{args.M}_{args.K}/reconstructed/")
         cropped_path = Path(f"/home/ra42tif/images_experiments/images/{args.run_name}_{args.N}_{args.M}_{args.K}/cropped/")
 
+        reconstruction_dir = "/home/ra42tif/datasets/reconstructions_dir"
         train_dataset = SSL4EOS12RGBDataset(
             # "/home/ra42tif/datasets/20gb_subset_ssl4eo/20gb_subset_ssl4eo"
             "/home/ra42tif/datasets/zarr_test_train"
@@ -459,7 +462,7 @@ def main(argv):
             "/home/ubuntu/data/small_val_to_transfer/S2RGB"
            ,is_train=False)
 
-    reconstruction_dir = "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/reconstruction_dir"
+    # reconstruction_dir = "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/reconstruction_dir"
     
     if args.seed is not None:
         torch.manual_seed(args.seed)
