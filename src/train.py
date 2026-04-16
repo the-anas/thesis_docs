@@ -407,11 +407,11 @@ def main(argv):
     args = parse_args(argv)
 
     if args.system == "cip_pool":    
-        reconstruction_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/reconstructed/")
-        cropped_path = Path(f"/home/ra42tif/images_experiments/images/{args.model}_{args.N}_{args.M}_{args.K}/cropped/")
+        reconstruction_path = Path(f"/home/ra42tif/images_experiments/images/{args.run_name}_{args.N}_{args.M}_{args.K}/reconstructed/")
+        cropped_path = Path(f"/home/ra42tif/images_experiments/images/{args.run_name}_{args.N}_{args.M}_{args.K}/cropped/")
 
         train_dataset = SSL4EOS12RGBDataset(
-            "/home/ra42tif/datasets/train_10gb_version/subset_train_big_dataset"
+            "/home/ra42tif/datasets/20gb_subset_ssl4eo/20gb_subset_ssl4eo"
             , is_train=True)
         
         test_dataset   = SSL4EOS12RGBDataset(
