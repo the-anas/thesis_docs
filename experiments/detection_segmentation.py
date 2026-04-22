@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import random
 
-IMAGE_PATH = "/home/anas/datasets/exp1_photos/sandy2.png"
-OUTPUT_PATH = "/home/anas/datasets/exp1_photos/sandy1_fastsam.png"
+IMAGE_PATH = "/home/anas/datasets/exp1/sandy1_recon.png"
+OUTPUT_PATH = "/home/anas/datasets/exp1/sandy1_recon_fastsam.png"
 
 model = FastSAM("FastSAM-s.pt")  # FastSAM-x.pt for better quality
 
@@ -51,25 +51,23 @@ else:
 overlay = np.clip(overlay, 0, 255).astype(np.uint8)
 
 # ── plot ──────────────────────────────────────────────────────────────────────
-fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-axes[0].imshow(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB))
-axes[0].set_title("Original"); axes[0].axis("off")
-
-axes[1].imshow(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB))
-axes[1].set_title("FastSAM Segments"); axes[1].axis("off")
+# ── plot ──────────────────────────────────────────────────────────────────────
+fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+ax.imshow(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB))
+ax.set_title("FastSAM Segments")
+ax.axis("off")
 
 patches = [
     mpatches.Patch(facecolor=tuple(c/255 for c in col), label=lbl)
     for col, lbl in legend_items
 ]
 if patches:
-    axes[1].legend(handles=patches, loc="lower left", fontsize=6,
-                   framealpha=0.7, ncol=max(1, len(patches)//8))
+    ax.legend(handles=patches, loc="lower left", fontsize=6,
+              framealpha=0.7, ncol=max(1, len(patches)//8))
 
 plt.tight_layout()
 plt.savefig(OUTPUT_PATH, dpi=180, bbox_inches="tight")
 print(f"Saved → {OUTPUT_PATH}")
-
 
 
 

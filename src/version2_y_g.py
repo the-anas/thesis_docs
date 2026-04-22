@@ -48,13 +48,42 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Subset
 
-from models import ScaleHyperprior, ScaleHyperpriorBahdanau
+from models import ScaleHyperprior, ScaleHyperpriorBahdanau, ScaleHyperpriorBahdanau_v2
 from loader import SSL4EOS12RGBDataset
 from new_utils import patchify, unpatchify, save_tensor_as_image, load_image
-
+from torchvision.datasets import ImageFolder
 import re
 import inspect
 import torch.nn.functional as F
+
+from torchvision import transforms
+
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
+from PIL import Image
+from pathlib import Path
+
+class FlatImageDataset(Dataset):
+    def __init__(self, root, transform=None):
+        self.paths     = sorted(Path(root).glob("*.png")) + sorted(Path(root).glob("*.jpg"))
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        img = Image.open(self.paths[idx]).convert("RGB")
+        if self.transform:
+            img = self.transform(img)
+        return img
+
+transform = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.ToTensor(),
+])
+
+# loader  = DataLoader(dataset, batch_size=32, shuffle=True, num_workers=4)
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -62,11 +91,12 @@ import torch.nn.functional as F
 
 PATCH_SIZE   = 16
 TIMESTAMP    = datetime.now().strftime("%Y-%m-%d_%H-%M")
-NOISE_SIGMAS = [0.01, 0.05, 0.1, 0.25, 0.5, 1.0]
+NOISE_SIGMAS = [0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.25, 0.5, 1.0]
 
 models_dict = {
     "basic-hyperprior":    ScaleHyperprior,
     "bahdanau-hyperprior": ScaleHyperpriorBahdanau,
+    "bahdanau-hyperprior-v2": ScaleHyperpriorBahdanau_v2
 }
 
 
@@ -331,61 +361,61 @@ def probe_mixed_yg(model, x: torch.Tensor, x_other: torch.Tensor) -> dict:
     #     model.g_a.attn.v.weight.data /= 10
     #     model.g_s.attn.v.weight.data /= 10
 
-    with torch.no_grad():
-        B, C, H, W = x.shape
-        x_p       = patchify(x, patch_size=model.patch_size)
-        x_other_p = patchify(x_other, patch_size=model.patch_size)
-        _, P, _, Hp, Wp = x_p.shape
-        x_flat       = x_p.reshape(B * P, C, Hp, Wp)
-        x_other_flat = x_other_p.reshape(B * P, C, Hp, Wp)
+    # with torch.no_grad():
+    #     B, C, H, W = x.shape
+    #     x_p       = patchify(x, patch_size=model.patch_size)
+    #     x_other_p = patchify(x_other, patch_size=model.patch_size)
+    #     _, P, _, Hp, Wp = x_p.shape
+    #     x_flat       = x_p.reshape(B * P, C, Hp, Wp)
+    #     x_other_flat = x_other_p.reshape(B * P, C, Hp, Wp)
 
-        y_g_own   = model._embed_patches(x_flat)
-        y_g_other = model._embed_patches(x_other_flat)
+    #     y_g_own   = model._embed_patches(x_flat)
+    #     y_g_other = model._embed_patches(x_other_flat)
 
-        # Manually run encoder internals to compare q vs context magnitudes
-        x_local = model.g_a.local(x_flat)
-        BP, M, h, w = x_local.shape
+    #     # Manually run encoder internals to compare q vs context magnitudes
+    #     x_local = model.g_a.local(x_flat)
+    #     BP, M, h, w = x_local.shape
 
-        q  = x_local.flatten(2).transpose(1, 2)           # (BP, h*w, M)
-        kv = y_g_own.flatten(2).transpose(1, 2).contiguous()
+    #     q  = x_local.flatten(2).transpose(1, 2)           # (BP, h*w, M)
+    #     kv = y_g_own.flatten(2).transpose(1, 2).contiguous()
 
-        q_norm  = model.g_a.ln_q(q)
-        kv_norm = model.g_a.ln_kv(kv)
+    #     q_norm  = model.g_a.ln_q(q)
+    #     kv_norm = model.g_a.ln_kv(kv)
 
-        context, alpha = model.g_a.attn(q_norm, kv_norm)
+    #     context, alpha = model.g_a.attn(q_norm, kv_norm)
 
-        print("q     abs_mean:", q_norm.abs().mean().item())
-        print("context abs_mean:", context.abs().mean().item())
-        print("alpha  std (how sharp):", alpha.std().item())
-        print("ratio context/q:", (context.abs().mean() / q_norm.abs().mean()).item())
+    #     print("q     abs_mean:", q_norm.abs().mean().item())
+    #     print("context abs_mean:", context.abs().mean().item())
+    #     print("alpha  std (how sharp):", alpha.std().item())
+    #     print("ratio context/q:", (context.abs().mean() / q_norm.abs().mean()).item())
     
 
-    with torch.no_grad():
-        energy_raw = model.g_a.attn.v(
-            torch.tanh(
-                model.g_a.attn.W_q(q_norm).unsqueeze(2) +
-                model.g_a.attn.W_k(kv_norm).unsqueeze(1)
-            )
-        ).squeeze(-1)  # (BP, L_q, L_k)
+    # with torch.no_grad():
+    #     energy_raw = model.g_a.attn.v(
+    #         torch.tanh(
+    #             model.g_a.attn.W_q(q_norm).unsqueeze(2) +
+    #             model.g_a.attn.W_k(kv_norm).unsqueeze(1)
+    #         )
+    #     ).squeeze(-1)  # (BP, L_q, L_k)
 
-        print("energy min:", energy_raw.min().item())
-        print("energy max:", energy_raw.max().item())
-        print("energy std:", energy_raw.std().item())
+    #     print("energy min:", energy_raw.min().item())
+    #     print("energy max:", energy_raw.max().item())
+    #     print("energy std:", energy_raw.std().item())
 
-    print("energy * 1e11 sample:", (energy_raw * 1e11)[0, 0, :5])
-    print("alpha sample:", alpha[0, 0, :5])
-    print("alpha has nan:", torch.isnan(alpha).any().item())
+    # print("energy * 1e11 sample:", (energy_raw * 1e11)[0, 0, :5])
+    # print("alpha sample:", alpha[0, 0, :5])
+    # print("alpha has nan:", torch.isnan(alpha).any().item())
 
-    for temp in [1.0, 10.0, 100.0, 1000.0]:
-        alpha_test = F.softmax(energy_raw * temp, dim=-1)
-        has_nan = torch.isnan(alpha_test).any().item()
-        std = alpha_test.std().item() if not has_nan else float('nan')
-        mx  = alpha_test.max().item() if not has_nan else float('nan')
-        print(f"temp={temp:6.0f}  alpha_std={std:.8f}  alpha_max={mx:.6f}  nan={has_nan}")
+    # for temp in [1.0, 10.0, 100.0, 1000.0]:
+    #     alpha_test = F.softmax(energy_raw * temp, dim=-1)
+    #     has_nan = torch.isnan(alpha_test).any().item()
+    #     std = alpha_test.std().item() if not has_nan else float('nan')
+    #     mx  = alpha_test.max().item() if not has_nan else float('nan')
+    #     print(f"temp={temp:6.0f}  alpha_std={std:.8f}  alpha_max={mx:.6f}  nan={has_nan}")
 
-    print("L_k:", kv_norm.shape[1])
+    # print("L_k:", kv_norm.shape[1])
     
-    print(inspect.getsource(model.g_a.attn.forward))
+    # print(inspect.getsource(model.g_a.attn.forward))
 
 
     return {
@@ -451,12 +481,12 @@ def run_probe_workflow(model, image_path: str, other_image_path: str,
     data = {}
 
     # ---- Exp 2: zero y_g ------------------------------------------------
-    print("\n[Exp 2] Zero y_g ...")
-    res2 = probe_zero_yg(model, x)
-    save_tensor_as_image(res2["x_hat"][0], Path(results_dir) / f"K{K}_zero_yg.png")
-    data["psnr_zero_yg"] = res2["psnr_zero_yg"]
-    data["bpp_zero_yg"]  = res2["bpp"]
-    print(f"  PSNR = {res2['psnr_zero_yg']:.4f} dB  →  K{K}_zero_yg.png")
+    # print("\n[Exp 2] Zero y_g ...")
+    # res2 = probe_zero_yg(model, x)
+    # save_tensor_as_image(res2["x_hat"][0], Path(results_dir) / f"K{K}_zero_yg.png")
+    # data["psnr_zero_yg"] = res2["psnr_zero_yg"]
+    # data["bpp_zero_yg"]  = res2["bpp"]
+    # print(f"  PSNR = {res2['psnr_zero_yg']:.4f} dB  →  K{K}_zero_yg.png")
 
     # ---- Exp 3: noisy y_g -----------------------------------------------
     # print("\n[Exp 3] Noisy y_g ...")
@@ -470,7 +500,7 @@ def run_probe_workflow(model, image_path: str, other_image_path: str,
     #     print(f"  sigma={sigma:<6}  PSNR = {res3['psnr_noisy_yg']:.4f} dB  →  {fname}")
 
     # ---- Exp 5: cross-image mixing --------------------------------------
-    print("\n[Exp 5] Cross-image mixing ...")
+    print("\n[Exp 5] Cross image mixing ...")
     res5 = probe_mixed_yg(model, x, x_other)
     save_tensor_as_image(res5["x_hat_mixed"][0], Path(results_dir) / f"K{K}_mixed_yg.png")
     # save_tensor_as_image(res5["x_hat_base"][0],  Path(results_dir) / f"K{K}_base_yg.png")
@@ -482,7 +512,7 @@ def run_probe_workflow(model, image_path: str, other_image_path: str,
     # print(f"  PSNR (own y_g)     = {res5['psnr_own_yg']:.4f} dB  →  K{K}_base_yg.png")
     # print(f"  PSNR (foreign y_g) = {res5['psnr_foreign_yg']:.4f} dB  →  K{K}_mixed_yg.png")
     # print(f"  PSNR delta         = {res5['psnr_delta']:.4f} dB")
-
+    
     # ---- Save metrics ---------------------------------------------------
     out_path = Path(results_dir) / output_file
     with open(out_path, "w") as f:
@@ -515,7 +545,15 @@ def run_info_workflow(model, dataset_path: str, K: int, device: str,
     # results_dir = Path(results_dir)
     # results_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset = SSL4EOS12RGBDataset(root=dataset_path)
+    transform = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+    ])
+
+    # dataset = ImageFolder(root=dataset_path, transform=transform)
+    dataset = FlatImageDataset(dataset_path, transform=transform)
+
+
     # indices = random.sample(range(len(dataset)), min(n_images, len(dataset)))
     # subset  = Subset(dataset, indices)
     loader  = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=2)
@@ -528,6 +566,9 @@ def run_info_workflow(model, dataset_path: str, K: int, device: str,
         "effective_rank":      [],
         "activation_sparsity": [],
         "yg_y_energy_corr":    [],
+        "entropy_bits_y":        [],
+        "effective_rank_y":      [],
+        "activation_sparsity_y": [],
     }
 
     print(f"\nRunning Exp 4 on {len(dataset)} images ...")
@@ -540,16 +581,30 @@ def run_info_workflow(model, dataset_path: str, K: int, device: str,
         y_g = model._embed_patches(x_flat)    # (B*P, K, h, w)
         y   = model.g_a(x_p, y_g)            # (B*P, M, h', w')
 
+        # print("y_g abs mean:", y_g.abs().mean().item())
+        # print("y_g abs max:", y_g.abs().max().item())
+        # print("y_g abs percentiles:")
+        # for p in [25, 50, 75, 90, 95]:
+        #     print(f"  {p}th: {y_g.abs().flatten().quantile(p/100).item():.4f}")
+
         records["entropy_bits"].append(empirical_entropy_bits(y_g))
         records["effective_rank"].append(effective_rank(y_g))
         records["activation_sparsity"].append(activation_sparsity(y_g))
         records["yg_y_energy_corr"].append(yg_y_energy_corr(y_g, y))
 
+        records["entropy_bits_y"].append(empirical_entropy_bits(y))
+        records["effective_rank_y"].append(effective_rank(y))
+        records["activation_sparsity_y"].append(activation_sparsity(y))
+
         print(f"  [{i+1:>3}/{len(loader)}] "
               f"entropy={records['entropy_bits'][-1]:.3f}  "
               f"eff_rank={records['effective_rank'][-1]:.2f}  "
               f"sparsity={records['activation_sparsity'][-1]:.3f}  "
-              f"corr={records['yg_y_energy_corr'][-1]:.3f}")
+              f"corr={records['yg_y_energy_corr'][-1]:.3f}"
+              f"  entropy_y={records['entropy_bits_y'][-1]:.3f}  "
+              f"eff_rank_y={records['effective_rank_y'][-1]:.2f}  "
+              f"sparsity_y={records['activation_sparsity_y'][-1]:.3f}"
+              )
 
     # Aggregate: mean ± std across all images
     summary = {"K": K, "n_images": len(records["entropy_bits"])}
@@ -590,7 +645,7 @@ def parse_args():
         sp.add_argument("--checkpoint",  type=str, required=True,
                         help="Path to checkpoint, must end with _N_M_K.pth.tar")
         sp.add_argument("--arch",        type=str, required=True,
-                        choices=["basic-hyperprior", "bahdanau-hyperprior"])
+                        choices=["basic-hyperprior", "bahdanau-hyperprior", "bahdanau-hyperprior-v2"],)
         sp.add_argument("--results-dir", dest="results_dir", type=str, default="probe_results")
         sp.add_argument("--output-file", dest="output_file", type=str, default="results.json")
         sp.add_argument("--cuda",        action="store_true")

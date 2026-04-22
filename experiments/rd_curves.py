@@ -34,14 +34,20 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ─────────────────────────────────────────────────────────────────────────────
 MODELS = {
     "small-bahdanau": {
-        "lambdas":     [0.003, 1e-2, 0.3],
+        "lambdas":     [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3],
         "checkpoints": [
-            "/path/to/modelA_lam0018.pth",
-            "/path/to/modelA_lam0067.pth",
-            "/path/to/modelA_lam025.pth",
+            "/home/anas/from_cluster/20_04_2026/   modelA_lam0018.pth",
+            "/home/anas/from_cluster/20_04_2026  modelA_lam0067.pth",
+            "/home/anas/from_cluster/20_04_2026  modelA_lam025.pth",
+            "/home/anas/from_cluster/20_04_2026/", 
+            "/home/anas/from_cluster/20_04_2026/",
+            "/home/anas/from_cluster/20_04_2026/",
+            "/home/anas/from_cluster/20_04_2026/",
+            "/home/anas/from_cluster/20_04_2026/",
         ],
         "model_fn": lambda: None,  # replace with e.g. ScaleHyperpriorBahdanau(...)
     },
+
     "large-bahdanau": {
         "lambdas":     [0.003, 1e-2, 0.3],
         "checkpoints": [
@@ -51,6 +57,24 @@ MODELS = {
         ],
         "model_fn": lambda: None,  # replace with e.g. ScaleHyperpriorConcat(...)
     },
+    "small-basic": {
+        "lambdas":     [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3],
+        "checkpoints": [
+            "/path/to/modelA_lam0018.pth",
+            "/path/to/modelA_lam0067.pth",
+            "/path/to/modelA_lam025.pth",
+        ],
+        "model_fn": lambda: None,  # replace with e.g. ScaleHyperpriorBahdanau(...)
+    },
+    "big-basic": {
+        "lambdas":     [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3],
+        "checkpoints": [
+            "/path/to/modelA_lam0018.pth",
+            "/path/to/modelA_lam0067.pth",
+            "/path/to/modelA_lam025.pth",
+        ],
+        "model_fn": lambda: None,  # replace with e.g. ScaleHyperpriorBahdanau(...)
+    }
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

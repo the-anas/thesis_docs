@@ -1,4 +1,6 @@
 """
+Used to generate quantiles boxplot for cosine similairy under experiment 1.
+
 boxplots.py
 
 Usage:
@@ -27,6 +29,36 @@ METRIC_LABELS = {
     "kl_ji":   "KL(j || i)  (bits)",
 }
 
+def print_summary(entropies, df_pair):
+    import numpy as np
+
+    print("\n" + "="*60)
+    print("  DISTRIBUTION SUMMARY")
+    print("="*60)
+
+    ent = np.array(entropies)
+    print(f"\nEntropy (bits)  n={len(ent)}")
+    print(f"  mean:   {ent.mean():.4f}")
+    print(f"  std:    {ent.std():.4f}")
+    print(f"  min:    {ent.min():.4f}")
+    print(f"  Q25:    {np.percentile(ent, 25):.4f}")
+    print(f"  median: {np.median(ent):.4f}")
+    print(f"  Q75:    {np.percentile(ent, 75):.4f}")
+    print(f"  max:    {ent.max():.4f}")
+
+    for metric in PAIRWISE_METRICS:
+        vals = df_pair[metric].dropna().values
+        print(f"\n{METRIC_LABELS[metric]}  n={len(vals)}")
+        print(f"  mean:   {vals.mean():.4f}")
+        print(f"  std:    {vals.std():.4f}")
+        print(f"  min:    {vals.min():.4f}")
+        print(f"  Q25:    {np.percentile(vals, 25):.4f}")
+        print(f"  median: {np.median(vals):.4f}")
+        print(f"  Q75:    {np.percentile(vals, 75):.4f}")
+        print(f"  max:    {vals.max():.4f}")
+
+    print("\n" + "="*60 + "\n")
+
 
 def build_dataframes(results: dict):
     entropies = []
@@ -50,7 +82,8 @@ def plot(results_path: str, output_dir: str | None):
         results = json.load(f)
 
     entropies, df_pair = build_dataframes(results)
-
+    print_summary(entropies, df_pair)  
+    
     if output_dir is None:
         output_dir = os.path.dirname(os.path.abspath(results_path))
     os.makedirs(output_dir, exist_ok=True)

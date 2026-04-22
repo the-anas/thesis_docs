@@ -124,22 +124,30 @@ def reconstruct(
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--image",       required=True,  help="Path to input image")
-    p.add_argument("--arch",        required=True,  choices=list(models_dict.keys()))
-    p.add_argument("--checkpoint",  required=True,  help="Path to .pth.tar checkpoint")
-    p.add_argument("--output",      required=True,  help="Output directory")
+    # p.add_argument("--image",       required=True,  help="Path to input image")
+    # p.add_argument("--arch",        required=True,  choices=list(models_dict.keys()))
+    # p.add_argument("--checkpoint",  required=True,  help="Path to .pth.tar checkpoint")
+    # p.add_argument("--output",      required=True,  help="Output directory")
     p.add_argument("--image-size",  type=int, default=256)
     p.add_argument("--patch-size",  type=int, default=16)
     return p.parse_args()
+
+image = "/home/anas/datasets/exp1/urban1.png"
+arch = "bahdanau-hyperprior-v2"
+# checkpoint = "/home/anas/from_cluster/downloaded_14_04_2026/checkpoints_sbatch/checkpoint_best_loss_bahdanau_big_cluster_192_320_192.pth.tar"
+checkpoint="/home/anas/from_cluster/the_newer_version_models/checkpoint_best_loss_bahdanau_v2_k32_cluster_32_64_32.pth.tar"
+
+output="/home/anas/from_cluster/the_newer_version_models/urban1_reconstructed_34k"
+
 
 
 if __name__ == "__main__":
     args = parse_args()
     reconstruct(
-        image_path=args.image,
-        arch=args.arch,
-        checkpoint_path=args.checkpoint,
-        output_dir=args.output,
+        image_path=image,
+        arch=arch,
+        checkpoint_path=checkpoint,
+        output_dir=output,
         image_size=args.image_size,
         patch_size=args.patch_size,
     )
