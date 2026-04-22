@@ -15,6 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from torchmetrics.image import PeakSignalNoiseRatio, MultiScaleStructuralSimilarityIndexMeasure
+from models import ScaleHyperpriorBahdanau, ScaleHyperprior
 
 # ── Device ────────────────────────────────────────────────────────────────────
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,23 +37,23 @@ MODELS = {
     "small-bahdanau": {
         "lambdas":     [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3],
         "checkpoints": [
-            "/home/anas/from_cluster/20_04_2026/   modelA_lam0018.pth",
-            "/home/anas/from_cluster/20_04_2026  modelA_lam0067.pth",
-            "/home/anas/from_cluster/20_04_2026  modelA_lam025.pth",
-            "/home/anas/from_cluster/20_04_2026/", 
-            "/home/anas/from_cluster/20_04_2026/",
-            "/home/anas/from_cluster/20_04_2026/",
-            "/home/anas/from_cluster/20_04_2026/",
-            "/home/anas/from_cluster/20_04_2026/",
+            "/home/anas/from_cluster/20_04_2026/   modelA_lam0018.pth", # missing
+            "/home/anas/from_cluster/downloaded_14_04_2026/checkpoints/checkpoint_best_loss_low_lambda_bahdanau_small_cluster_128_192_128.pth.tar", #0.003
+            "/home/anas/from_cluster/20_04_2026/checkpoint_best_loss_bahdanau_small_cluster_128_192_128.pth.tar",
+            "/home/anas/from_cluster/20_04_2026/checkpoint_l_003_bahdanau_small_cluster_128_192_128.pth.tar", 
+            "/home/anas/from_cluster/20_04_2026/", # missing
+            "/home/anas/from_cluster/downloaded_14_04_2026/checkpoints/checkpoint_best_loss_high_lambda_bahdanau_small_cluster_128_192_128.pth.tar",
+            "/home/anas/from_cluster/20_04_2026/", # missing
+            "/home/anas/from_cluster/20_04_2026/checkpoint_best_loss_l_3_bahdanau_small_cluster_128_192_128.pth.tar",
         ],
         "model_fn": lambda: None,  # replace with e.g. ScaleHyperpriorBahdanau(...)
     },
 
     "large-bahdanau": {
-        "lambdas":     [0.003, 1e-2, 0.3],
+        "lambdas":     [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3],
         "checkpoints": [
             "/path/to/modelB_lam0018.pth",
-            "/path/to/modelB_lam0067.pth",
+            "/home/anas/from_cluster/downloaded_14_04_2026/checkpoints/checkpoint_best_loss_low_lambda_bahdanau_big_cluster_192_320_192.pth.tar",
             "/path/to/modelB_lam025.pth",
         ],
         "model_fn": lambda: None,  # replace with e.g. ScaleHyperpriorConcat(...)
@@ -61,7 +62,7 @@ MODELS = {
         "lambdas":     [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3],
         "checkpoints": [
             "/path/to/modelA_lam0018.pth",
-            "/path/to/modelA_lam0067.pth",
+            "/home/anas/from_cluster/downloaded_14_04_2026/checkpoints/checkpoint_best_loss_low_lambda_bahdanau_small_cluster_128_192_128.pth.tar",
             "/path/to/modelA_lam025.pth",
         ],
         "model_fn": lambda: None,  # replace with e.g. ScaleHyperpriorBahdanau(...)
@@ -70,7 +71,7 @@ MODELS = {
         "lambdas":     [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3],
         "checkpoints": [
             "/path/to/modelA_lam0018.pth",
-            "/path/to/modelA_lam0067.pth",
+            "/home/anas/from_cluster/downloaded_14_04_2026/checkpoints/checkpoint_best_loss_low_lambda_vanilla_big_cluster_192_320_192.pth.tar",
             "/path/to/modelA_lam025.pth",
         ],
         "model_fn": lambda: None,  # replace with e.g. ScaleHyperpriorBahdanau(...)

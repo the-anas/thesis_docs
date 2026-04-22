@@ -7,4 +7,4 @@
 #SBATCH --output=basic_big.out   
 #SBATCH --job-name=big_vanilla
 echo "Running test script on host $(hostname)"
-uv run /dss/dsshome1/0E/ra42tif2/thesis_docs/src/train.py -d "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/20gb_subset_ssl4eo" -nm vanilla_big_cluster --cuda --save --seed 1234 -N 192 -M 320 -K 192 -m basic-hyperprior --system mcml --tags basic_hyperprior big 20gb_subset_ssl4eo
+uv run /dss/dsshome1/0E/ra42tif2/thesis_docs/src/train.py -d "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ra42tif2/20gb_subset_ssl4eo" -nm vanilla_big_cluster --cuda --save --seed 1234 -N 192 -M 320 -K 192 --lambda 0.01 -m basic-hyperprior --system mcml --tags basic_hyperprior big 20gb_subset_ssl4eo
